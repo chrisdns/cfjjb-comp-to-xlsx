@@ -2,15 +2,22 @@
   "name": "cfjjb",
   "version": "1.0.0",
   "description": "",
-  "main": "script.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "main": "download.js",
   "private": true,
+  "scripts": {
+    "postinstall": "npx playwright install"
+  },
   "dependencies": {
     "dayjs": "^1.11.13",
+    "express": "^5.1.0",
     "playwright": "^1.51.1",
+    "playwright-core": "^1.51.1",
     "xlsx": "^0.18.5"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@sparticuz/chromium": "^133.0.0",
+    "@sparticuz/chromium-min": "^133.0.0",
+    "multer": "^1.4.5-lts.2"
+  }
 }

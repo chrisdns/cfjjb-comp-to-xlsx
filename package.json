@@ -2,15 +2,31 @@
   "name": "cfjjb",
   "version": "1.0.0",
   "description": "",
-  "main": "script.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "main": "download.js",
   "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "postinstall": "npx playwright install"
+  },
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.8",
+    "cli-progress": "^3.12.0",
     "dayjs": "^1.11.13",
-    "playwright": "^1.51.1",
+    "express": "^5.1.0",
+    "multer": "^2.0.1",
+    "playwright": "^1.52.0",
+    "playwright-core": "^1.52.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.8",
     "xlsx": "^0.18.5"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.1",
+    "vite": "^6.3.5"
+  }
 }

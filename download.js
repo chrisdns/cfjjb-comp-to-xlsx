@@ -1,9 +1,9 @@
-import cliProgress from "cli-progress";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import {chromium} from 'playwright';
 import locale_fr from 'dayjs/locale/fr.js';
 import * as path from "node:path";
+import {JSDOM} from "jsdom";
 
 dayjs.locale(locale_fr);
 
@@ -12,21 +12,23 @@ export async function main(url, academy) {
     const page = await browser.newPage();
 
     await page.goto(url, {waitUntil: 'domcontentloaded'});
-    await page.click('[href*="tab=brackets"]');
+    await page.click('a:has-text("Liste des Participants")');
+    await page.click('a:has-text("Par Académies")');
 
-    const params = new URL(page.url()).searchParams;
-    const planning = await extractPlanning(params.get('id'));
+    const planning = await extractPlanning(url.split('/').at(-1));
 
-    await scrollToBottom(page);
-    const data = await computeData(page, {planning, academy});
+    const compPage = await fetch(page.url());
+    const htmlString = await compPage.text();
+    const dom = new JSDOM(htmlString);
 
-    await browser.close();
+    const data = await computeData(dom.window.document, planning);
 
     return generateXlsx(data, academy);
 }
 
 async function extractPlanning(id) {
     const {data} = await (await fetch(`https://cfjjb.com/api/competition/${id}/fight_areas`)).json();
+
     return data
         .flatMap(entry => entry.fight_areas.flatMap(area => area.planning.map(plan => ({
             category: plan.category.fullname, starts_at: plan.details.starts_at, tatami: area.name
@@ -61,68 +63,32 @@ async function extractPlanning(id) {
         });
 }
 
-async function scrollToBottom(page) {
-    const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
-    const step = 1000;
-    const totalSteps = Math.ceil((scrollHeight + 50000) / step);
-
-    const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
-    bar.start(totalSteps, 0);
-
-    for (let i = 0; i < scrollHeight + 50000; i += step) {
-        await page.evaluate((scrollPos) => {
-            window.scrollTo(0, scrollPos);
-        }, i);
-
-        await page.waitForTimeout(25);
-        bar.increment();
-    }
-
-    bar.stop();
-}
-
-async function computeData(page, params) {
-    return page.evaluate((params) => {
-        const {planning, academy} = params;
-        return Array
-            .from(document.querySelectorAll('section[id^="page_area_"]'))
-            .reduce((acc, div) => {
-                const cate = div.querySelector('.text-center.uppercase.tracking-wider').innerText;
-                const weightLimit = div.querySelector('.text-base').innerText;
-                const squares = Array
-                    .from(div.querySelectorAll('div[id^="ins_"]'))
-                    .map(t => {
-                        const fighter = t.querySelector('.font-bold')?.innerText;
-                        const team = t.querySelector('.font-thin')?.innerText;
-                        if (fighter && team?.toLowerCase().includes(academy.toLowerCase())) {
-                            const fighterCate = planning.find(({category}) => category.toLowerCase() === cate.toLowerCase());
-                            return {
-                                fighter,
-                                team,
-                                cate,
-                                weightLimit,
-                                tatamis: fighterCate.tatamis.join(','),
-                                startDate: fighterCate.startDate,
-                                startHour: fighterCate.startHour
-                            };
-                        }
-                    })
-                    .filter(Boolean);
-
-                acc.push(squares)
-
-                return acc;
-            }, [])
-            .filter(arr => arr.length > 0)
-            .flat();
-    }, params);
+async function computeData(compPage, planning) {
+    return Array.from(compPage.querySelectorAll('h1'))
+        .flatMap(academy => {
+            const academyName = academy.textContent.trim();
+            const rows = academy.parentElement.nextElementSibling.querySelectorAll('tr');
+            const academyInfo = Array.from(rows)
+                .map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim()));
+            return academyInfo.flatMap(([category, fighter]) => {
+                const fighterCategoryFromPlanning = planning.find(({category: c}) => c.toLowerCase() === category.toLowerCase());
+                return {
+                    fighter,
+                    team: academyName,
+                    cate: category,
+                    tatamis: fighterCategoryFromPlanning?.tatamis.join(',') ?? 'Unknown',
+                    startDate: fighterCategoryFromPlanning?.startDate ?? 'Unknown',
+                    startHour: fighterCategoryFromPlanning?.startHour ?? 'Unknown'
+                }
+            })
+        });
 }
 
 function generateXlsx(data, academy) {
-    const headers = ['Nom', 'Club', 'Catégorie', 'Poids', 'Tatamis', 'Jour', 'Heure'];
-    const fields = ['fighter', 'team', 'cate', 'weightLimit', 'tatamis', 'startDate', 'startHour'];
+    const headers = ['Nom', 'Club', 'Catégorie', 'Tatamis', 'Jour', 'Heure'];
+    const fields = ['fighter', 'team', 'cate', 'tatamis', 'startDate', 'startHour'];
 
-    const groupedByDay = Object.groupBy(data, ({startDate}) => startDate);
+    const groupedByDay = Object.groupBy(data.filter(d => d.team.toLowerCase().includes('infinity')), ({startDate}) => startDate);
     const sheets = Object
         .keys(groupedByDay)
         .map(day => {

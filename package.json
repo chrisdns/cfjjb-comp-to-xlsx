@@ -12,22 +12,22 @@
     "postinstall": "npx playwright install"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.8",
+    "@tailwindcss/vite": "^4.1.14",
     "cli-progress": "^3.12.0",
-    "dayjs": "^1.11.13",
+    "dayjs": "^1.11.18",
     "express": "^5.1.0",
-    "jsdom": "^26.1.0",
-    "multer": "^2.0.1",
-    "playwright": "^1.52.0",
-    "playwright-core": "^1.52.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "tailwindcss": "^4.1.8",
-    "xlsx": "^0.18.5"
+    "jsdom": "^27.0.0",
+    "multer": "^2.0.2",
+    "playwright": "^1.55.1",
+    "playwright-core": "^1.55.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwindcss": "^4.1.14",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "type": "module",
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.5.1",
-    "vite": "^6.3.5"
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.8"
   }
 }

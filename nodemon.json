@@ -1,0 +1,9 @@
+{
+  "watch": ["server.js", "download.js"],
+  "ext": "js,json",
+  "ignore": ["node_modules/", "dist/", "output/", "*.xlsx"],
+  "exec": "node server.js",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

@@ -27,6 +27,7 @@ RUN npm ci --omit=dev \
     && npx playwright install chromium \
     && rm -rf /tmp/*
 
+RUN mkdir -p /app/output && chown node:node /app/output
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]

@@ -1,15 +1,20 @@
 import cliProgress from "cli-progress";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
+import utc from 'dayjs/plugin/utc.js';
+import timezone from 'dayjs/plugin/timezone.js';
 import {chromium} from 'playwright';
 import locale_fr from 'dayjs/locale/fr.js';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import * as path from "node:path";
 import fs from "fs";
 
 dayjs.locale(locale_fr);
 
 export async function main(url, academy) {
-    const browser = await chromium.launch({headless: false});
+    const browser = await chromium.launch({headless: true});
     const page = await browser.newPage();
 
     await page.goto(url, {waitUntil: 'domcontentloaded'});
@@ -53,7 +58,7 @@ async function extractPlanning(id) {
             return acc;
         }, [])
         .map(item => {
-            const startDateTime = dayjs(item.startDate).add(4, 'hour'); // TODO chelou les + 4h...
+            const startDateTime = dayjs.utc(item.startDate).tz('Europe/Paris');
             return {
                 ...item,
                 startDate: startDateTime.format('dddd'),

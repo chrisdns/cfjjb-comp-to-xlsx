@@ -1,8 +1,8 @@
 import {useState} from 'react';
 
 function App() {
-    const [id, setId] = useState('');
-    const [academy, setAcademy] = useState('infinity');
+    const [url, setUrl] = useState('');
+    const [filename, setFilename] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -10,10 +10,11 @@ function App() {
         setLoading(true);
 
         try {
-            const response = await fetch(`/generate?id=${id}&academy=${academy}`, {
-                method: 'GET',
-                headers: {'Content-Type': 'application/json'},
-            });
+            const match = url.match(/\/info\/(\d+)/);
+            if (!match) throw new Error('URL invalide — impossible de trouver l\'ID de la compétition');
+            const id = match[1];
+
+            const response = await fetch(`/generate?id=${id}&academy=infinity`);
 
             if (!response.ok) throw new Error('Failed to fetch XLSX file');
 
@@ -21,7 +22,7 @@ function App() {
             const downloadUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = downloadUrl;
-            a.download = `planning_${academy}_${id}.xlsx`;
+            a.download = `${filename || `planning_${id}`}.xlsx`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -34,60 +35,57 @@ function App() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-white text-gray-800 px-4 relative">
-            <div className="bg-white border border-red-600 shadow-red-700 shadow-2xl rounded-2xl p-8 w-full max-w-md">
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    <div className="relative">
-                        <input
-                            type="number"
-                            id="id"
-                            value={id}
-                            onChange={(e) => setId(e.target.value)}
-                            required
-                            className="peer w-full px-2 pt-6 pb-2 bg-transparent border-b-2 border-gray-300 text-gray-800 focus:outline-none focus:border-red-500"
-                            placeholder=" "
-                        />
-                        <label
-                            htmlFor="id"
-                            className="absolute left-2 top-2 text-gray-500 text-sm transition-all peer-placeholder-shown:top-5 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-focus:top-2 peer-focus:text-sm peer-focus:text-red-500"
-                        >
-                            CFJJB competition ID
+        <div className="min-h-screen flex items-center justify-center bg-white px-4">
+            <div className="w-full p-6 sm:max-w-sm sm:border sm:border-gray-200 sm:rounded-2xl sm:p-8 sm:shadow-lg">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                        <label htmlFor="url" className="block text-sm text-gray-500 mb-1">
+                            URL de la compétition
                         </label>
+                        <input
+                            type="url"
+                            id="url"
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value)}
+                            required
+                            className="w-full px-1 py-2 border-b-2 border-gray-300 bg-transparent text-gray-800 focus:outline-none focus:border-red-500 text-sm"
+                            placeholder="https://cfjjb.com/competitions/signup/info/..."
+                        />
                     </div>
 
-                    {/*<div className="relative">*/}
-                    {/*    <input*/}
-                    {/*        type="text"*/}
-                    {/*        id="academy"*/}
-                    {/*        value={academy}*/}
-                    {/*        onChange={(e) => setAcademy(e.target.value)}*/}
-                    {/*        required*/}
-                    {/*        className="peer w-full px-2 pt-6 pb-2 bg-transparent border-b-2 border-gray-300 text-gray-800 focus:outline-none focus:border-red-500"*/}
-                    {/*        placeholder=" "*/}
-                    {/*    />*/}
-                    {/*    <label*/}
-                    {/*        htmlFor="academy"*/}
-                    {/*        className="absolute left-2 top-2 text-gray-500 text-sm transition-all peer-placeholder-shown:top-5 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-focus:top-2 peer-focus:text-sm peer-focus:text-red-500"*/}
-                    {/*    >*/}
-                    {/*        Academy Filter*/}
-                    {/*    </label>*/}
-                    {/*</div>*/}
+                    <div>
+                        <label htmlFor="filename" className="block text-sm text-gray-500 mb-1">
+                            Nom du fichier (sans l'extension)
+                        </label>
+                        <input
+                            type="text"
+                            id="filename"
+                            value={filename}
+                            onChange={(e) => setFilename(e.target.value)}
+                            className="w-full px-1 py-2 border-b-2 border-gray-300 bg-transparent text-gray-800 focus:outline-none focus:border-red-500 text-sm"
+                            placeholder="planning_competition"
+                        />
+                    </div>
 
                     <button
                         type="submit"
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-800 transition duration-300 uppercase tracking-wider cursor-pointer"
+                        disabled={loading}
+                        className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
                     >
-                        Generate .xlsx file
+                        {loading && (
+                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                        )}
+                        {loading ? 'Generating...' : 'Generate .xlsx'}
                     </button>
                 </form>
-            </div>
 
-            {loading && (
-                <div
-                    className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70 backdrop-blur-sm">
-                    <div className="text-red-500 text-6xl animate-spin">∞</div>
-                </div>
-            )}
+                <p className="text-xs text-gray-400 mt-6 text-center leading-relaxed">
+                    Collez l'URL d'une compétition depuis <a href="https://cfjjb.com/" target="_blank" rel="noopener noreferrer" className="underline text-red-500 hover:text-red-600">cfjjb.com</a> pour générer le fichier Excel du planning.
+                </p>
+            </div>
         </div>
     );
 }

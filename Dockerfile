@@ -1,9 +1,7 @@
 FROM node:22-slim AS builder
 WORKDIR /app
-COPY package.json ./
-
-RUN rm -f package-lock.json && npm install
-
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 ENV NODE_ENV=production
 RUN npm run build
@@ -20,14 +18,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/download.js ./
 COPY --from=builder /app/server.js ./
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/browsers
-RUN rm -f package-lock.json && npm install --omit=dev \
+RUN npm ci --omit=dev \
     && npx playwright install chromium \
     && rm -rf /tmp/*
 
+USER node
 EXPOSE 3000
 CMD ["node", "server.js"]

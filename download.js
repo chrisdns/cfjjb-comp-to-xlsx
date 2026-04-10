@@ -10,6 +10,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 import * as path from "node:path";
 import fs from "fs";
+import {fileURLToPath} from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const outputDir = path.join(__dirname, 'output');
 
 dayjs.locale(locale_fr);
 
@@ -37,7 +41,6 @@ export async function main(url, academy, id) {
 }
 
 function getCachedFile(id, academy) {
-    const outputDir = path.resolve('./output');
     const filePath = path.join(outputDir, `planning_${academy}_${id}.xlsx`);
     if (fs.existsSync(filePath)) return filePath;
     return null;
@@ -162,7 +165,6 @@ function generateXlsx(data, academy, id) {
     });
 
     const filename = `planning_${academy}_${id}.xlsx`;
-    const outputDir = path.resolve('./output');
     const filePath = path.join(outputDir, filename);
 
     if (!fs.existsSync(outputDir)) {

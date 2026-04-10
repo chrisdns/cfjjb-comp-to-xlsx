@@ -1,10 +1,15 @@
 services:
   cfjjb:
     build: .
-    container_name: cfjjb
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.cfjjb.rule=Host(`ossu.fr`)"

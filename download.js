@@ -17,17 +17,25 @@ const outputDir = path.join(__dirname, 'output');
 dayjs.locale(locale_fr);
 
 let browserInstance = null;
+let browserLaunching = null;
 
 async function getBrowser() {
-    if (!browserInstance || !browserInstance.isConnected()) {
-        logger.info('Launching shared browser');
-        browserInstance = await chromium.launch({headless: true});
-        browserInstance.on('disconnected', () => {
+    if (browserInstance?.isConnected()) return browserInstance;
+    if (browserLaunching) return browserLaunching;
+    logger.info('Launching shared browser');
+    browserLaunching = chromium.launch({headless: true}).then(browser => {
+        browserInstance = browser;
+        browserLaunching = null;
+        browser.on('disconnected', () => {
             logger.warn('Browser disconnected');
             browserInstance = null;
         });
-    }
-    return browserInstance;
+        return browser;
+    }).catch(err => {
+        browserLaunching = null;
+        throw err;
+    });
+    return browserLaunching;
 }
 
 export async function closeBrowser() {

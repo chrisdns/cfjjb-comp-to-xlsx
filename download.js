@@ -18,16 +18,38 @@ const outputDir = path.join(__dirname, 'output');
 
 dayjs.locale(locale_fr);
 
+let browserInstance = null;
+
+async function getBrowser() {
+    if (!browserInstance || !browserInstance.isConnected()) {
+        logger.info('Launching shared browser');
+        browserInstance = await chromium.launch({headless: true});
+        browserInstance.on('disconnected', () => {
+            logger.warn('Browser disconnected');
+            browserInstance = null;
+        });
+    }
+    return browserInstance;
+}
+
+export async function closeBrowser() {
+    if (browserInstance) {
+        await browserInstance.close();
+        browserInstance = null;
+        logger.info('Shared browser closed');
+    }
+}
+
 function checkAborted(signal) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 }
 
 export async function scrape(url, academy, signal) {
     logger.info({ url, academy }, 'Scrape started');
-    const browser = await chromium.launch({headless: true});
+    const browser = await getBrowser();
+    const page = await browser.newPage();
     try {
         checkAborted(signal);
-        const page = await browser.newPage();
 
         logger.info({ url }, 'Navigating to page');
         const response = await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 60000});
@@ -59,8 +81,8 @@ export async function scrape(url, academy, signal) {
 
         return data;
     } finally {
-        await browser.close();
-        logger.info('Browser closed');
+        await page.close();
+        logger.info('Page closed');
     }
 }
 

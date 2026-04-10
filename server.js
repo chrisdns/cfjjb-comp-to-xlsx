@@ -3,7 +3,7 @@ import compression from 'compression';
 import fs from 'fs';
 import pino from 'pino';
 import rateLimit from 'express-rate-limit';
-import {scrape, generateXlsx, getCachedFile} from "./download.js";
+import {scrape, generateXlsx, getCachedFile, closeBrowser} from "./download.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
 
@@ -189,9 +189,10 @@ cleanupOutput();
 const PORT = 3000;
 const server = app.listen(PORT, () => logger.info({ port: PORT }, 'Server running'));
 
-function shutdown(signal) {
+async function shutdown(signal) {
     logger.info({ signal }, 'Shutting down gracefully');
-    server.close(() => {
+    server.close(async () => {
+        await closeBrowser();
         logger.info('Server closed');
         process.exit(0);
     });

@@ -121,9 +121,10 @@ app.get('/generate', generateLimiter, async (req, res) => {
     }
 
     try {
+        const filename = `planning_${academy}_${id}.xlsx`;
         const cached = getCachedFile(id, academy);
         if (cached) {
-            return res.download(cached, err => {
+            return res.download(cached, filename, err => {
                 if (err) logger.error({ err, id, academy }, 'Error sending cached file');
             });
         }
@@ -138,7 +139,7 @@ app.get('/generate', generateLimiter, async (req, res) => {
         const filePath = await generateXlsx(entry.data, academy, id);
         previewCache.delete(key);
         logger.info({ id, academy, filePath }, 'File sent');
-        res.download(filePath, err => {
+        res.download(filePath, filename, err => {
             if (err) logger.error({ err, id, academy }, 'Error sending generated file');
         });
     } catch (e) {

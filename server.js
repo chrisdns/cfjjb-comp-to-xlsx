@@ -56,7 +56,8 @@ function validateParams(id, academy) {
 }
 
 app.get('/preview', scrapeLimiter, async (req, res) => {
-    const {id, academy} = req.query;
+    const {id} = req.query;
+    const academy = req.query.academy?.trim().toLowerCase();
 
     logger.info({ id, academy }, 'Preview request');
 
@@ -88,10 +89,6 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
             inflightScrapes.set(key, pending);
         }
 
-        req.on('close', () => {
-            logger.info({ id, academy }, 'Preview request cancelled by client');
-        });
-
         const data = await pending;
         req.app.locals[`preview_${id}_${academy}`] = data;
         logger.info({ id, academy, fighters: data.length }, 'Preview response sent');
@@ -104,7 +101,8 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
 });
 
 app.get('/generate', generateLimiter, async (req, res) => {
-    const {id, academy} = req.query;
+    const {id} = req.query;
+    const academy = req.query.academy?.trim().toLowerCase();
 
     logger.info({ id, academy }, 'Generate request');
 

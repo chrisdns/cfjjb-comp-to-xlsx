@@ -17,15 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
     fonts-liberation fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json /app/package-lock.json ./
-COPY --from=builder /app/download.js ./
-COPY --from=builder /app/server.js ./
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/browsers
 RUN npm ci --omit=dev \
     && npx playwright install chromium \
     && rm -rf /tmp/*
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/download.js ./
+COPY --from=builder /app/server.js ./
 
 RUN mkdir -p /app/output && chown node:node /app/output
 USER node

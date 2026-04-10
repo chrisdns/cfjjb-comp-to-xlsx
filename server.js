@@ -56,8 +56,11 @@ function validateParams(id, academy) {
 app.get('/preview', scrapeLimiter, async (req, res) => {
     const {id, academy} = req.query;
 
+    logger.info({ id, academy }, 'Preview request');
+
     const error = validateParams(id, academy);
     if (error) {
+        logger.warn({ id, academy, error }, 'Preview validation failed');
         return res.status(400).json({error});
     }
 
@@ -68,11 +71,15 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
         }
 
         const ac = new AbortController();
-        req.on('close', () => ac.abort());
+        req.on('close', () => {
+            logger.info({ id, academy }, 'Preview request cancelled by client');
+            ac.abort();
+        });
 
         const data = await scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy, ac.signal);
         if (ac.signal.aborted) return;
         req.app.locals[`preview_${id}_${academy}`] = data;
+        logger.info({ id, academy, fighters: data.length }, 'Preview response sent');
         res.json({cached: false, data});
     } catch (e) {
         if (e.name === 'AbortError') return;
@@ -84,8 +91,11 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
 app.get('/generate', generateLimiter, async (req, res) => {
     const {id, academy} = req.query;
 
+    logger.info({ id, academy }, 'Generate request');
+
     const error = validateParams(id, academy);
     if (error) {
+        logger.warn({ id, academy, error }, 'Generate validation failed');
         return res.status(400).json({error});
     }
 
@@ -99,11 +109,13 @@ app.get('/generate', generateLimiter, async (req, res) => {
 
         const data = req.app.locals[`preview_${id}_${academy}`];
         if (!data) {
+            logger.warn({ id, academy }, 'Generate called without preview data');
             return res.status(400).json({error: 'Veuillez d\'abord prévisualiser les données'});
         }
 
         const filePath = await generateXlsx(data, academy, id);
         delete req.app.locals[`preview_${id}_${academy}`];
+        logger.info({ id, academy, filePath }, 'File sent');
         res.download(filePath, err => {
             if (err) logger.error({ err, id, academy }, 'Error sending generated file');
         });

@@ -12,6 +12,7 @@ function App() {
     const cancelRequest = () => {
         abortControllerRef.current?.abort();
         abortControllerRef.current = null;
+        setLoading(false);
     };
 
     const handlePreview = async (e) => {
@@ -156,27 +157,28 @@ function App() {
                         />
                     </div>
 
-                    {loading ? (
-                        <button
-                            type="button"
-                            onClick={cancelRequest}
-                            className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
-                        >
-                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                            Annuler
-                        </button>
-                    ) : (
-                        <button
-                            type="submit"
-                            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition cursor-pointer"
-                        >
-                            Rechercher les combattants
-                        </button>
-                    )}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-red-600 hover:bg-red-700 disabled:hidden text-white font-bold py-3 rounded-xl transition cursor-pointer"
+                    >
+                        Rechercher les combattants
+                    </button>
                 </form>
+
+                {loading && (
+                    <button
+                        type="button"
+                        onClick={cancelRequest}
+                        className="w-full mt-6 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
+                    >
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Annuler
+                    </button>
+                )}
 
                 {preview && (
                     <div className="mt-6 space-y-4">

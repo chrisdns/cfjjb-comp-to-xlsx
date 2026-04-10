@@ -4,6 +4,7 @@ import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
 import {chromium} from 'playwright';
 import locale_fr from 'dayjs/locale/fr.js';
+import pino from 'pino';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -11,6 +12,7 @@ import * as path from "node:path";
 import fs from "fs";
 import {fileURLToPath} from 'url';
 
+const logger = pino({ transport: process.env.NODE_ENV !== 'production' ? { target: 'pino/file' } : undefined });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outputDir = path.join(__dirname, 'output');
 
@@ -21,11 +23,13 @@ function checkAborted(signal) {
 }
 
 export async function scrape(url, academy, signal) {
+    logger.info({ url, academy }, 'Scrape started');
     const browser = await chromium.launch({headless: true});
     try {
         checkAborted(signal);
         const page = await browser.newPage();
 
+        logger.info({ url }, 'Navigating to page');
         const response = await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 60000});
         if (!response.ok()) throw new Error(`Page inaccessible: ${response.status()}`);
 
@@ -33,23 +37,30 @@ export async function scrape(url, academy, signal) {
         const bracketsTab = await page.$('[href*="tab=brackets"]');
         if (!bracketsTab) throw new Error('Onglet brackets introuvable — vérifiez l\'URL');
         await bracketsTab.click();
+        logger.info('Brackets tab clicked');
 
         const params = new URL(page.url()).searchParams;
         const competitionId = params.get('id');
         if (!competitionId) throw new Error('ID de compétition introuvable dans l\'URL');
 
         checkAborted(signal);
+        logger.info({ competitionId }, 'Fetching planning');
         const planning = await extractPlanning(competitionId);
+        logger.info({ categories: planning.length }, 'Planning fetched');
 
         checkAborted(signal);
+        logger.info('Scrolling page to load all content');
         await scrollToBottom(page, signal);
+
         const data = await computeData(page, {planning, academy});
+        logger.info({ fighters: data.length, academy }, 'Data extracted');
 
         if (data.length === 0) throw new Error(`Aucun combattant trouvé pour "${academy}"`);
 
         return data;
     } finally {
         await browser.close();
+        logger.info('Browser closed');
     }
 }
 
@@ -57,7 +68,10 @@ export {generateXlsx, getCachedFile};
 
 function getCachedFile(id, academy) {
     const filePath = path.join(outputDir, `planning_${academy}_${id}.xlsx`);
-    if (fs.existsSync(filePath)) return filePath;
+    if (fs.existsSync(filePath)) {
+        logger.info({ filePath }, 'Serving cached file');
+        return filePath;
+    }
     return null;
 }
 
@@ -168,6 +182,7 @@ async function computeData(page, params) {
 }
 
 async function generateXlsx(data, academy, id) {
+    logger.info({ academy, id, fighters: data.length }, 'Generating xlsx');
     const headers = ['Nom', 'Club', 'Catégorie', 'Poids', 'Tatamis', 'Jour', 'Heure'];
     const fields = ['fighter', 'team', 'cate', 'weightLimit', 'tatamis', 'startDate', 'startHour'];
 
@@ -198,5 +213,6 @@ async function generateXlsx(data, academy, id) {
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     await fs.promises.writeFile(filePath, buffer);
 
+    logger.info({ filePath, sheets: sheets.length }, 'Xlsx written');
     return filePath;
 }

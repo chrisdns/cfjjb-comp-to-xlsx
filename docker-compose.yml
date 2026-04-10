@@ -3,7 +3,8 @@ services:
     build: .
     container_name: cfjjb
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "3000:3000"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.cfjjb.rule=Host(`ossu.fr`)"

@@ -7,6 +7,7 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState(null);
     const [competitionId, setCompetitionId] = useState(null);
+    const [activeDay, setActiveDay] = useState(null);
     const abortControllerRef = useRef(null);
 
     const cancelRequest = () => {
@@ -101,7 +102,6 @@ function App() {
 
     const groupedByDay = preview ? Object.groupBy(preview, ({startDate}) => startDate) : null;
     const days = groupedByDay ? Object.keys(groupedByDay) : [];
-    const [activeDay, setActiveDay] = useState(null);
     const currentDay = activeDay || days[0];
 
     return (

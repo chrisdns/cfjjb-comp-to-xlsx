@@ -140,23 +140,44 @@ function App() {
 
                 {preview && (
                     <div className="mt-6 space-y-4">
-                        <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-                            <h2 className="text-sm font-bold text-gray-700">
-                                {preview.length} combattant{preview.length > 1 ? 's' : ''} trouvé{preview.length > 1 ? 's' : ''}
-                            </h2>
-                            {Object.entries(groupedByDay).map(([day, fighters]) => (
-                                <div key={day}>
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">{day}</h3>
-                                    <ul className="space-y-1">
-                                        {fighters.map((f, i) => (
-                                            <li key={i} className="text-sm text-gray-700 flex justify-between">
-                                                <span className="font-medium">{f.fighter}</span>
-                                                <span className="text-gray-400 text-xs">{f.cate} — {f.startHour}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
+                        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+                            <div className="flex items-baseline justify-between">
+                                <h2 className="text-sm font-bold text-gray-800">
+                                    {preview.length} combattant{preview.length > 1 ? 's' : ''}
+                                </h2>
+                                <span className="text-xs text-gray-400">
+                                    {Object.keys(groupedByDay).length} jour{Object.keys(groupedByDay).length > 1 ? 's' : ''}
+                                </span>
+                            </div>
+
+                            <div className="space-y-3 max-h-80 overflow-y-auto">
+                                {Object.entries(groupedByDay).map(([day, fighters]) => (
+                                    <div key={day}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <h3 className="text-xs font-semibold text-red-500 uppercase">{day}</h3>
+                                            <span className="text-[10px] text-gray-400">({fighters.length})</span>
+                                            <div className="flex-1 border-t border-gray-100" />
+                                        </div>
+                                        <ul className="space-y-1.5">
+                                            {fighters.map((f, i) => (
+                                                <li key={i} className="text-sm text-gray-700 grid grid-cols-[1fr_auto] gap-2 items-baseline">
+                                                    <div>
+                                                        <span className="font-medium">{f.fighter}</span>
+                                                        <span className="text-xs text-gray-400 ml-1.5">{f.weightLimit}</span>
+                                                    </div>
+                                                    <div className="text-right text-xs text-gray-500 whitespace-nowrap">
+                                                        <span>{f.cate}</span>
+                                                        <span className="mx-1 text-gray-300">|</span>
+                                                        <span className="font-medium text-gray-700">{f.startHour}</span>
+                                                        <span className="mx-1 text-gray-300">|</span>
+                                                        <span>T{f.tatamis}</span>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
                         <button

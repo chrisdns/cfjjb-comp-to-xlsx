@@ -1,13 +1,11 @@
 import express from 'express';
 import compression from 'compression';
 import fs from 'fs';
-import pino from 'pino';
 import rateLimit from 'express-rate-limit';
 import {scrape, generateXlsx, getCachedFile, closeBrowser} from "./download.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
-
-const logger = pino({ transport: process.env.NODE_ENV !== 'production' ? { target: 'pino/file' } : undefined });
+import {logger} from './logger.js';
 
 const app = express();
 app.set('trust proxy', 1);

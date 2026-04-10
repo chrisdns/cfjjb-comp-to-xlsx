@@ -27,6 +27,7 @@ RUN npm ci --omit=dev \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/download.js ./
 COPY --from=builder /app/server.js ./
+COPY --from=builder /app/logger.js ./
 
 RUN mkdir -p /app/output && chown node:node /app/output
 USER node

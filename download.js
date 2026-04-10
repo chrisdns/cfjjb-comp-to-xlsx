@@ -4,15 +4,13 @@ import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
 import {chromium} from 'playwright';
 import locale_fr from 'dayjs/locale/fr.js';
-import pino from 'pino';
+import {logger} from './logger.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 import * as path from "node:path";
 import fs from "fs";
 import {fileURLToPath} from 'url';
-
-const logger = pino({ transport: process.env.NODE_ENV !== 'production' ? { target: 'pino/file' } : undefined });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outputDir = path.join(__dirname, 'output');
 

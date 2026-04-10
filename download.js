@@ -18,8 +18,13 @@ const outputDir = path.join(__dirname, 'output');
 dayjs.locale(locale_fr);
 
 export async function main(url, academy, id) {
+    console.log(`Cache check: outputDir=${outputDir}, id=${id}, academy=${academy}`);
     const cached = getCachedFile(id, academy);
-    if (cached) return cached;
+    if (cached) {
+        console.log(`Cache hit: ${cached}`);
+        return cached;
+    }
+    console.log('Cache miss, scraping...');
 
     const browser = await chromium.launch({headless: true});
     try {

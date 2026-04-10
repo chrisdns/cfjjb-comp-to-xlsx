@@ -1,0 +1,17 @@
+services:
+  cfjjb:
+    build: .
+    container_name: cfjjb
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cfjjb.rule=Host(`ossu.fr`)"
+      - "traefik.http.routers.cfjjb.entrypoints=websecure"
+      - "traefik.http.routers.cfjjb.tls.certresolver=letsencrypt"
+      - "traefik.http.services.cfjjb.loadbalancer.server.port=3000"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    external: true

@@ -9,6 +9,7 @@ import {fileURLToPath} from 'url';
 const logger = pino({ transport: process.env.NODE_ENV !== 'production' ? { target: 'pino/file' } : undefined });
 
 const app = express();
+app.set('trust proxy', 1);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

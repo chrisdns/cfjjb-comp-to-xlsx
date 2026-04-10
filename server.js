@@ -1,8 +1,11 @@
 import express from 'express';
 import fs from 'fs';
+import pino from 'pino';
 import {scrape, generateXlsx, getCachedFile} from "./download.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
+
+const logger = pino({ transport: process.env.NODE_ENV !== 'production' ? { target: 'pino/file' } : undefined });
 
 const app = express();
 
@@ -16,11 +19,28 @@ app.get('/', function (req, res) {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
+function validateParams(id, academy) {
+    if (!id || !academy) {
+        return 'Paramètres "id" et "academy" requis';
+    }
+    if (!/^\d+$/.test(id)) {
+        return 'L\'ID doit être un nombre';
+    }
+    if (academy.length > 100) {
+        return 'Le nom de l\'académie est trop long (max 100 caractères)';
+    }
+    if (/[\/\\<>:"|?*\x00-\x1f]/.test(academy)) {
+        return 'Le nom de l\'académie contient des caractères invalides';
+    }
+    return null;
+}
+
 app.get('/preview', async (req, res) => {
     const {id, academy} = req.query;
 
-    if (!id || !academy) {
-        return res.status(400).json({error: 'Missing id or academy'});
+    const error = validateParams(id, academy);
+    if (error) {
+        return res.status(400).json({error});
     }
 
     try {
@@ -33,7 +53,7 @@ app.get('/preview', async (req, res) => {
         req.app.locals[`preview_${id}_${academy}`] = data;
         res.json({cached: false, data});
     } catch (e) {
-        console.error(e);
+        logger.error({ err: e, id, academy }, 'Preview failed');
         res.status(500).json({error: e.message});
     }
 });
@@ -41,15 +61,16 @@ app.get('/preview', async (req, res) => {
 app.get('/generate', async (req, res) => {
     const {id, academy} = req.query;
 
-    if (!id || !academy) {
-        return res.status(400).json({error: 'Missing id or academy'});
+    const error = validateParams(id, academy);
+    if (error) {
+        return res.status(400).json({error});
     }
 
     try {
         const cached = getCachedFile(id, academy);
         if (cached) {
             return res.download(cached, err => {
-                if (err) console.error('Error sending file:', err);
+                if (err) logger.error({ err, id, academy }, 'Error sending cached file');
             });
         }
 
@@ -61,13 +82,38 @@ app.get('/generate', async (req, res) => {
         const filePath = generateXlsx(data, academy, id);
         delete req.app.locals[`preview_${id}_${academy}`];
         res.download(filePath, err => {
-            if (err) console.error('Error sending file:', err);
+            if (err) logger.error({ err, id, academy }, 'Error sending generated file');
         });
     } catch (e) {
-        console.error(e);
+        logger.error({ err: e, id, academy }, 'Generate failed');
         res.status(500).json({error: e.message});
     }
 });
 
+const outputDir = path.join(__dirname, 'output');
+const FILE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
+
+function cleanupOutput() {
+    fs.readdir(outputDir, (err, files) => {
+        if (err) return;
+        const now = Date.now();
+        for (const file of files) {
+            const filePath = path.join(outputDir, file);
+            fs.stat(filePath, (err, stats) => {
+                if (err) return;
+                if (now - stats.mtimeMs > FILE_MAX_AGE_MS) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) logger.error({ err, filePath }, 'Failed to delete expired file');
+                        else logger.info({ filePath }, 'Deleted expired file');
+                    });
+                }
+            });
+        }
+    });
+}
+
+setInterval(cleanupOutput, FILE_MAX_AGE_MS);
+cleanupOutput();
+
 const PORT = 3000;
-app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
+app.listen(PORT, () => logger.info({ port: PORT }, 'Server running'));

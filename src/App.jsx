@@ -14,7 +14,16 @@ function App() {
         setPreview(null);
 
         try {
-            const match = url.match(/\/info\/(\d+)/);
+            let parsedUrl;
+            try {
+                parsedUrl = new URL(url);
+            } catch {
+                throw new Error('URL invalide');
+            }
+            if (parsedUrl.hostname !== 'cfjjb.com' && parsedUrl.hostname !== 'www.cfjjb.com') {
+                throw new Error('L\'URL doit provenir de cfjjb.com');
+            }
+            const match = parsedUrl.pathname.match(/\/info\/(\d+)/);
             if (!match) throw new Error('URL invalide — impossible de trouver l\'ID de la compétition');
             const id = match[1];
             setCompetitionId(id);

@@ -17,33 +17,36 @@ const outputDir = path.join(__dirname, 'output');
 
 dayjs.locale(locale_fr);
 
-export async function main(url, academy, id) {
-    console.log(`Cache check: outputDir=${outputDir}, id=${id}, academy=${academy}`);
-    const cached = getCachedFile(id, academy);
-    if (cached) {
-        console.log(`Cache hit: ${cached}`);
-        return cached;
-    }
-    console.log('Cache miss, scraping...');
-
+export async function scrape(url, academy) {
     const browser = await chromium.launch({headless: true});
     try {
         const page = await browser.newPage();
 
-        await page.goto(url, {waitUntil: 'domcontentloaded'});
-        await page.click('[href*="tab=brackets"]');
+        const response = await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 60000});
+        if (!response.ok()) throw new Error(`Page inaccessible: ${response.status()}`);
+
+        const bracketsTab = await page.$('[href*="tab=brackets"]');
+        if (!bracketsTab) throw new Error('Onglet brackets introuvable — vérifiez l\'URL');
+        await bracketsTab.click();
 
         const params = new URL(page.url()).searchParams;
-        const planning = await extractPlanning(params.get('id'));
+        const competitionId = params.get('id');
+        if (!competitionId) throw new Error('ID de compétition introuvable dans l\'URL');
+
+        const planning = await extractPlanning(competitionId);
 
         await scrollToBottom(page);
         const data = await computeData(page, {planning, academy});
 
-        return generateXlsx(data, academy, id);
+        if (data.length === 0) throw new Error(`Aucun combattant trouvé pour "${academy}"`);
+
+        return data;
     } finally {
         await browser.close();
     }
 }
+
+export {generateXlsx, getCachedFile};
 
 function getCachedFile(id, academy) {
     const filePath = path.join(outputDir, `planning_${academy}_${id}.xlsx`);
@@ -52,7 +55,11 @@ function getCachedFile(id, academy) {
 }
 
 async function extractPlanning(id) {
-    const {planning2: data} = await (await fetch(`https://cfjjb.com/public/competition/${id}/planningv2`)).json();
+    const res = await fetch(`https://cfjjb.com/public/competition/${id}/planningv2`);
+    if (!res.ok) throw new Error(`Erreur API planning: ${res.status}`);
+    const json = await res.json();
+    if (!json.planning2) throw new Error('Planning introuvable pour cette compétition');
+    const data = json.planning2;
     return data
         .flatMap(entry => entry.areas.flatMap(area => area.category_fights.map(fight => ({
             category: fight.category.fullname, starts_at: fight.starts_at, tatami: area.name

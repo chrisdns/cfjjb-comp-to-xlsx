@@ -8,6 +8,10 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
+            '/preview': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+            },
             '/generate': {
                 target: 'http://localhost:3000',
                 changeOrigin: true,

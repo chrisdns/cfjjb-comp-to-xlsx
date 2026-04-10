@@ -74,10 +74,16 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
 
         const key = `${id}_${academy}`;
         let pending = inflightScrapes.get(key);
-        if (!pending) {
+        if (pending) {
+            logger.info({ id, academy }, 'Joining existing scrape in progress');
+        } else {
+            logger.info({ id, academy }, 'Starting new scrape');
             const ac = new AbortController();
             pending = scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy, ac.signal)
-                .finally(() => inflightScrapes.delete(key));
+                .finally(() => {
+                    logger.info({ id, academy }, 'Scrape finished, removing from inflight');
+                    inflightScrapes.delete(key);
+                });
             pending.ac = ac;
             inflightScrapes.set(key, pending);
         }

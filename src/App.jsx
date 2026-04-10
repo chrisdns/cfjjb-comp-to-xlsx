@@ -167,7 +167,7 @@ function App() {
                             </div>
 
                             <ul className="p-4 space-y-1.5 max-h-72 overflow-y-auto">
-                                {groupedByDay[currentDay]?.map((f, i) => (
+                                {groupedByDay[currentDay]?.sort((a, b) => a.startHour.localeCompare(b.startHour)).map((f, i) => (
                                     <li key={i} className="text-sm text-gray-700 py-1">
                                         <div className="flex items-baseline justify-between gap-2">
                                             <span className="font-medium truncate">{f.fighter}</span>

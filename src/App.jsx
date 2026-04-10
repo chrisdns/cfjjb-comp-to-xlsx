@@ -2,6 +2,7 @@ import {useState} from 'react';
 
 function App() {
     const [url, setUrl] = useState('');
+    const [academy, setAcademy] = useState('');
     const [filename, setFilename] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -14,7 +15,7 @@ function App() {
             if (!match) throw new Error('URL invalide — impossible de trouver l\'ID de la compétition');
             const id = match[1];
 
-            const response = await fetch(`/generate?id=${id}&academy=infinity`);
+            const response = await fetch(`/generate?id=${id}&academy=${encodeURIComponent(academy)}`);
 
             if (!response.ok) throw new Error('Failed to fetch XLSX file');
 
@@ -50,6 +51,21 @@ function App() {
                             required
                             className="w-full px-1 py-2 border-b-2 border-gray-300 bg-transparent text-gray-800 focus:outline-none focus:border-red-500 text-sm"
                             placeholder="https://cfjjb.com/competitions/signup/info/..."
+                        />
+                    </div>
+
+                    <div>
+                        <label htmlFor="academy" className="block text-sm text-gray-500 mb-1">
+                            Nom de l'académie
+                        </label>
+                        <input
+                            type="text"
+                            id="academy"
+                            value={academy}
+                            onChange={(e) => setAcademy(e.target.value)}
+                            required
+                            className="w-full px-1 py-2 border-b-2 border-gray-300 bg-transparent text-gray-800 focus:outline-none focus:border-red-500 text-sm"
+                            placeholder="infinity"
                         />
                     </div>
 

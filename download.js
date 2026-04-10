@@ -15,20 +15,22 @@ dayjs.locale(locale_fr);
 
 export async function main(url, academy) {
     const browser = await chromium.launch({headless: true});
-    const page = await browser.newPage();
+    try {
+        const page = await browser.newPage();
 
-    await page.goto(url, {waitUntil: 'domcontentloaded'});
-    await page.click('[href*="tab=brackets"]');
+        await page.goto(url, {waitUntil: 'domcontentloaded'});
+        await page.click('[href*="tab=brackets"]');
 
-    const params = new URL(page.url()).searchParams;
-    const planning = await extractPlanning(params.get('id'));
+        const params = new URL(page.url()).searchParams;
+        const planning = await extractPlanning(params.get('id'));
 
-    await scrollToBottom(page);
-    const data = await computeData(page, {planning, academy});
+        await scrollToBottom(page);
+        const data = await computeData(page, {planning, academy});
 
-    await browser.close();
-
-    return generateXlsx(data, academy);
+        return generateXlsx(data, academy);
+    } finally {
+        await browser.close();
+    }
 }
 
 async function extractPlanning(id) {
@@ -157,13 +159,8 @@ function generateXlsx(data, academy) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    console.log(`Attempting to save file to: ${filePath}`);
-    console.log(`Output directory exists: ${fs.existsSync(outputDir)}`);
-    console.log(`Output directory writable: ${fs.accessSync ? 'checking...' : 'unknown'}`);
-
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     fs.writeFileSync(filePath, buffer);
-    console.log(`File saved successfully using buffer: ${filePath}`);
 
     return filePath;
 }

@@ -1,12 +1,10 @@
 import express from 'express';
-import multer from 'multer';
 import fs from 'fs';
 import {main} from "./download.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
 
 const app = express();
-const upload = multer();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,11 +16,11 @@ app.get('/', function (req, res) {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.get('/generate', upload.none(), async (req, res) => {
+app.get('/generate', async (req, res) => {
     const {id, academy} = req.query;
 
     if (!id || !academy) {
-        return res.status(400).json({error: 'Missing url or academy'});
+        return res.status(400).json({error: 'Missing id or academy'});
     }
 
     try {
@@ -31,7 +29,7 @@ app.get('/generate', upload.none(), async (req, res) => {
             if (err) {
                 console.error('Error sending file:', err);
             }
-            fs.unlinkSync(filePath);
+            fs.unlink(filePath, () => {});
         });
     } catch (e) {
         console.error(e);

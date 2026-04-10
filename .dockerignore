@@ -3,3 +3,7 @@ dist
 output
 .git
 .github
+Dockerfile
+docker-compose.yml
+.dockerignore
+*.md

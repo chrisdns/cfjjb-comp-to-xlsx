@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import fs from 'fs';
 import pino from 'pino';
 import rateLimit from 'express-rate-limit';
@@ -31,7 +32,10 @@ const generateLimiter = rateLimit({
 });
 
 const inflightScrapes = new Map();
+const previewCache = new Map();
+const PREVIEW_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
+app.use(compression());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')))
 
@@ -90,7 +94,7 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
         }
 
         const data = await pending;
-        req.app.locals[`preview_${id}_${academy}`] = data;
+        previewCache.set(`${id}_${academy}`, { data, createdAt: Date.now() });
         logger.info({ id, academy, fighters: data.length }, 'Preview response sent');
         res.json({cached: false, data});
     } catch (e) {
@@ -120,14 +124,15 @@ app.get('/generate', generateLimiter, async (req, res) => {
             });
         }
 
-        const data = req.app.locals[`preview_${id}_${academy}`];
-        if (!data) {
+        const key = `${id}_${academy}`;
+        const entry = previewCache.get(key);
+        if (!entry) {
             logger.warn({ id, academy }, 'Generate called without preview data');
             return res.status(400).json({error: 'Veuillez d\'abord prévisualiser les données'});
         }
 
-        const filePath = await generateXlsx(data, academy, id);
-        delete req.app.locals[`preview_${id}_${academy}`];
+        const filePath = await generateXlsx(entry.data, academy, id);
+        previewCache.delete(key);
         logger.info({ id, academy, filePath }, 'File sent');
         res.download(filePath, err => {
             if (err) logger.error({ err, id, academy }, 'Error sending generated file');
@@ -141,7 +146,18 @@ app.get('/generate', generateLimiter, async (req, res) => {
 const outputDir = path.join(__dirname, 'output');
 const FILE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
+function cleanupPreviews() {
+    const now = Date.now();
+    for (const [key, { createdAt }] of previewCache) {
+        if (now - createdAt > PREVIEW_MAX_AGE_MS) {
+            previewCache.delete(key);
+            logger.info({ key }, 'Deleted expired preview');
+        }
+    }
+}
+
 function cleanupOutput() {
+    cleanupPreviews();
     fs.readdir(outputDir, (err, files) => {
         if (err) return;
         const now = Date.now();

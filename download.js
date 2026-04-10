@@ -1,4 +1,3 @@
-import cliProgress from "cli-progress";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import utc from 'dayjs/plugin/utc.js';
@@ -18,7 +17,7 @@ const outputDir = path.join(__dirname, 'output');
 dayjs.locale(locale_fr);
 
 export async function scrape(url, academy) {
-    const browser = await chromium.launch({headless: true});
+    const browser = await chromium.launch({headless: false});
     try {
         const page = await browser.newPage();
 
@@ -95,23 +94,29 @@ async function extractPlanning(id) {
 }
 
 async function scrollToBottom(page) {
-    const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
-    const step = 150;
-    const totalSteps = Math.ceil((scrollHeight + 40000) / step);
+    const step = 300;
+    let stableCount = 0;
 
-    const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
-    bar.start(totalSteps, 0);
+    while (stableCount < 3) {
+        // Scroll gradually to the current bottom to trigger lazy loading
+        const targetHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+        const currentPos = await page.evaluate(() => window.scrollY);
 
-    for (let i = 0; i < scrollHeight + 40000; i += step) {
-        await page.evaluate((scrollPos) => {
-            window.scrollTo(0, scrollPos);
-        }, i);
+        for (let pos = currentPos; pos < targetHeight; pos += step) {
+            await page.evaluate((p) => window.scrollTo(0, p), pos);
+            await page.waitForTimeout(35);
+        }
 
-        await page.waitForTimeout(35);
-        bar.increment();
+        // Wait for any new content to load
+        await page.waitForTimeout(1000);
+
+        const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+        if (newHeight === targetHeight) {
+            stableCount++;
+        } else {
+            stableCount = 0;
+        }
     }
-
-    bar.stop();
 }
 
 async function computeData(page, params) {

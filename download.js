@@ -167,7 +167,7 @@ async function computeData(page, params) {
     }, params);
 }
 
-function generateXlsx(data, academy, id) {
+async function generateXlsx(data, academy, id) {
     const headers = ['Nom', 'Club', 'Catégorie', 'Poids', 'Tatamis', 'Jour', 'Heure'];
     const fields = ['fighter', 'team', 'cate', 'weightLimit', 'tatamis', 'startDate', 'startHour'];
 
@@ -193,12 +193,10 @@ function generateXlsx(data, academy, id) {
     const filename = `planning_${academy}_${id}.xlsx`;
     const filePath = path.join(outputDir, filename);
 
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+    await fs.promises.mkdir(outputDir, { recursive: true });
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-    fs.writeFileSync(filePath, buffer);
+    await fs.promises.writeFile(filePath, buffer);
 
     return filePath;
 }

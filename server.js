@@ -102,7 +102,7 @@ app.get('/generate', generateLimiter, async (req, res) => {
             return res.status(400).json({error: 'Veuillez d\'abord prévisualiser les données'});
         }
 
-        const filePath = generateXlsx(data, academy, id);
+        const filePath = await generateXlsx(data, academy, id);
         delete req.app.locals[`preview_${id}_${academy}`];
         res.download(filePath, err => {
             if (err) logger.error({ err, id, academy }, 'Error sending generated file');

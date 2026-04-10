@@ -30,6 +30,8 @@ const generateLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+const inflightScrapes = new Map();
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')))
 
@@ -70,14 +72,21 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
             return res.json({cached: true, data: []});
         }
 
-        const ac = new AbortController();
+        const key = `${id}_${academy}`;
+        let pending = inflightScrapes.get(key);
+        if (!pending) {
+            const ac = new AbortController();
+            pending = scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy, ac.signal)
+                .finally(() => inflightScrapes.delete(key));
+            pending.ac = ac;
+            inflightScrapes.set(key, pending);
+        }
+
         req.on('close', () => {
             logger.info({ id, academy }, 'Preview request cancelled by client');
-            ac.abort();
         });
 
-        const data = await scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy, ac.signal);
-        if (ac.signal.aborted) return;
+        const data = await pending;
         req.app.locals[`preview_${id}_${academy}`] = data;
         logger.info({ id, academy, fighters: data.length }, 'Preview response sent');
         res.json({cached: false, data});
@@ -147,8 +156,24 @@ function cleanupOutput() {
     });
 }
 
-setInterval(cleanupOutput, FILE_MAX_AGE_MS);
+const cleanupInterval = setInterval(cleanupOutput, FILE_MAX_AGE_MS);
+cleanupInterval.unref();
 cleanupOutput();
 
 const PORT = 3000;
-app.listen(PORT, () => logger.info({ port: PORT }, 'Server running'));
+const server = app.listen(PORT, () => logger.info({ port: PORT }, 'Server running'));
+
+function shutdown(signal) {
+    logger.info({ signal }, 'Shutting down gracefully');
+    server.close(() => {
+        logger.info('Server closed');
+        process.exit(0);
+    });
+    setTimeout(() => {
+        logger.error('Forcing shutdown after timeout');
+        process.exit(1);
+    }, 10_000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

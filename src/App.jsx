@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState, useRef} from 'react';
 
 function App() {
     const [url, setUrl] = useState('');
@@ -7,11 +7,21 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState(null);
     const [competitionId, setCompetitionId] = useState(null);
+    const abortControllerRef = useRef(null);
+
+    const cancelRequest = () => {
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
+    };
 
     const handlePreview = async (e) => {
         e.preventDefault();
+        cancelRequest();
         setLoading(true);
         setPreview(null);
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         try {
             let parsedUrl;
@@ -28,7 +38,9 @@ function App() {
             const id = match[1];
             setCompetitionId(id);
 
-            const response = await fetch(`/preview?id=${id}&academy=${encodeURIComponent(academy)}`);
+            const response = await fetch(`/preview?id=${id}&academy=${encodeURIComponent(academy)}`, {
+                signal: controller.signal,
+            });
             if (!response.ok) {
                 const body = await response.json().catch(() => null);
                 throw new Error(body?.error || 'Erreur lors de la récupération des données');
@@ -36,19 +48,23 @@ function App() {
 
             const result = await response.json();
             if (result.cached) {
-                await downloadFile(id);
+                await downloadFile(id, controller.signal);
             } else {
                 setPreview(result.data);
             }
         } catch (err) {
+            if (err.name === 'AbortError') return;
             alert('Erreur: ' + err.message);
         } finally {
+            abortControllerRef.current = null;
             setLoading(false);
         }
     };
 
-    const downloadFile = async (id) => {
-        const response = await fetch(`/generate?id=${id || competitionId}&academy=${encodeURIComponent(academy)}`);
+    const downloadFile = async (id, signal) => {
+        const response = await fetch(`/generate?id=${id || competitionId}&academy=${encodeURIComponent(academy)}`, {
+            signal,
+        });
         if (!response.ok) {
             const body = await response.json().catch(() => null);
             throw new Error(body?.error || 'Erreur lors de la génération du fichier');
@@ -67,12 +83,17 @@ function App() {
     };
 
     const handleDownload = async () => {
+        cancelRequest();
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
         setLoading(true);
         try {
-            await downloadFile();
+            await downloadFile(undefined, controller.signal);
         } catch (err) {
+            if (err.name === 'AbortError') return;
             alert('Erreur: ' + err.message);
         } finally {
+            abortControllerRef.current = null;
             setLoading(false);
         }
     };
@@ -135,19 +156,26 @@ function App() {
                         />
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
-                    >
-                        {loading && (
+                    {loading ? (
+                        <button
+                            type="button"
+                            onClick={cancelRequest}
+                            className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
+                        >
                             <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                             </svg>
-                        )}
-                        {loading ? 'Chargement...' : 'Rechercher les combattants'}
-                    </button>
+                            Annuler
+                        </button>
+                    ) : (
+                        <button
+                            type="submit"
+                            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition cursor-pointer"
+                        >
+                            Rechercher les combattants
+                        </button>
+                    )}
                 </form>
 
                 {preview && (

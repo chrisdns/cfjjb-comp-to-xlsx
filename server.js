@@ -66,12 +66,17 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
             return res.json({cached: true, data: []});
         }
 
-        const data = await scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy);
+        const ac = new AbortController();
+        req.on('close', () => ac.abort());
+
+        const data = await scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy, ac.signal);
+        if (ac.signal.aborted) return;
         req.app.locals[`preview_${id}_${academy}`] = data;
         res.json({cached: false, data});
     } catch (e) {
+        if (e.name === 'AbortError') return;
         logger.error({ err: e, id, academy }, 'Preview failed');
-        res.status(500).json({error: e.message});
+        if (!res.headersSent) res.status(500).json({error: e.message});
     }
 });
 

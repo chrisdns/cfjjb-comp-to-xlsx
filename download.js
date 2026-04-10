@@ -16,14 +16,20 @@ const outputDir = path.join(__dirname, 'output');
 
 dayjs.locale(locale_fr);
 
-export async function scrape(url, academy) {
+function checkAborted(signal) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+}
+
+export async function scrape(url, academy, signal) {
     const browser = await chromium.launch({headless: true});
     try {
+        checkAborted(signal);
         const page = await browser.newPage();
 
         const response = await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 60000});
         if (!response.ok()) throw new Error(`Page inaccessible: ${response.status()}`);
 
+        checkAborted(signal);
         const bracketsTab = await page.$('[href*="tab=brackets"]');
         if (!bracketsTab) throw new Error('Onglet brackets introuvable — vérifiez l\'URL');
         await bracketsTab.click();
@@ -32,9 +38,11 @@ export async function scrape(url, academy) {
         const competitionId = params.get('id');
         if (!competitionId) throw new Error('ID de compétition introuvable dans l\'URL');
 
+        checkAborted(signal);
         const planning = await extractPlanning(competitionId);
 
-        await scrollToBottom(page);
+        checkAborted(signal);
+        await scrollToBottom(page, signal);
         const data = await computeData(page, {planning, academy});
 
         if (data.length === 0) throw new Error(`Aucun combattant trouvé pour "${academy}"`);
@@ -93,11 +101,12 @@ async function extractPlanning(id) {
         });
 }
 
-async function scrollToBottom(page) {
+async function scrollToBottom(page, signal) {
     const step = 300;
     let stableCount = 0;
 
     while (stableCount < 3) {
+        checkAborted(signal);
         // Scroll gradually to the current bottom to trigger lazy loading
         const targetHeight = await page.evaluate(() => document.documentElement.scrollHeight);
         const currentPos = await page.evaluate(() => window.scrollY);

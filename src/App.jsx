@@ -69,10 +69,13 @@ function App() {
     };
 
     const groupedByDay = preview ? Object.groupBy(preview, ({startDate}) => startDate) : null;
+    const days = groupedByDay ? Object.keys(groupedByDay) : [];
+    const [activeDay, setActiveDay] = useState(null);
+    const currentDay = activeDay || days[0];
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-white px-4">
-            <div className="w-full p-6 sm:max-w-sm sm:border sm:border-gray-200 sm:rounded-2xl sm:p-8 sm:shadow-lg">
+            <div className="w-full p-6 sm:max-w-lg sm:border sm:border-gray-200 sm:rounded-2xl sm:p-8 sm:shadow-lg lg:max-w-xl">
                 <h1 className="text-lg font-bold text-gray-800 mb-1">OSS Planner</h1>
                 <p className="text-sm text-gray-500 mb-6">
                     Générez un fichier Excel avec le planning de votre académie pour une compétition CFJJB. Le fichier contient les combattants filtrés par club, triés par jour et heure de passage.
@@ -140,44 +143,42 @@ function App() {
 
                 {preview && (
                     <div className="mt-6 space-y-4">
-                        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
-                            <div className="flex items-baseline justify-between">
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="flex items-center justify-between px-4 pt-3 pb-2">
                                 <h2 className="text-sm font-bold text-gray-800">
                                     {preview.length} combattant{preview.length > 1 ? 's' : ''}
                                 </h2>
-                                <span className="text-xs text-gray-400">
-                                    {Object.keys(groupedByDay).length} jour{Object.keys(groupedByDay).length > 1 ? 's' : ''}
-                                </span>
                             </div>
 
-                            <div className="space-y-3 max-h-80 overflow-y-auto">
-                                {Object.entries(groupedByDay).map(([day, fighters]) => (
-                                    <div key={day}>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <h3 className="text-xs font-semibold text-red-500 uppercase">{day}</h3>
-                                            <span className="text-[10px] text-gray-400">({fighters.length})</span>
-                                            <div className="flex-1 border-t border-gray-100" />
-                                        </div>
-                                        <ul className="space-y-1.5">
-                                            {fighters.map((f, i) => (
-                                                <li key={i} className="text-sm text-gray-700 grid grid-cols-[1fr_auto] gap-2 items-baseline">
-                                                    <div>
-                                                        <span className="font-medium">{f.fighter}</span>
-                                                        <span className="text-xs text-gray-400 ml-1.5">{f.weightLimit}</span>
-                                                    </div>
-                                                    <div className="text-right text-xs text-gray-500 whitespace-nowrap">
-                                                        <span>{f.cate}</span>
-                                                        <span className="mx-1 text-gray-300">|</span>
-                                                        <span className="font-medium text-gray-700">{f.startHour}</span>
-                                                        <span className="mx-1 text-gray-300">|</span>
-                                                        <span>T{f.tatamis}</span>
-                                                    </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
+                            <div className="flex border-b border-gray-200">
+                                {days.map(day => (
+                                    <button
+                                        key={day}
+                                        onClick={() => setActiveDay(day)}
+                                        className={`flex-1 px-3 py-2 text-xs font-semibold uppercase text-center transition cursor-pointer ${
+                                            currentDay === day
+                                                ? 'text-red-600 border-b-2 border-red-500'
+                                                : 'text-gray-400 hover:text-gray-600'
+                                        }`}
+                                    >
+                                        {day} <span className="text-[10px] font-normal">({groupedByDay[day].length})</span>
+                                    </button>
                                 ))}
                             </div>
+
+                            <ul className="p-4 space-y-1.5 max-h-72 overflow-y-auto">
+                                {groupedByDay[currentDay]?.map((f, i) => (
+                                    <li key={i} className="text-sm text-gray-700 py-1">
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <span className="font-medium truncate">{f.fighter}</span>
+                                            <span className="font-medium text-gray-700 text-xs shrink-0">{f.startHour}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-400 mt-0.5">
+                                            {f.cate} · {f.weightLimit} · T{f.tatamis}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
 
                         <button

@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import pino from 'pino';
+import rateLimit from 'express-rate-limit';
 import {scrape, generateXlsx, getCachedFile} from "./download.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
@@ -11,6 +12,22 @@ const app = express();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const scrapeLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,
+    message: { error: 'Trop de requêtes, veuillez réessayer dans quelques minutes' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const generateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { error: 'Trop de requêtes, veuillez réessayer dans quelques minutes' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')))
@@ -35,7 +52,7 @@ function validateParams(id, academy) {
     return null;
 }
 
-app.get('/preview', async (req, res) => {
+app.get('/preview', scrapeLimiter, async (req, res) => {
     const {id, academy} = req.query;
 
     const error = validateParams(id, academy);
@@ -58,7 +75,7 @@ app.get('/preview', async (req, res) => {
     }
 });
 
-app.get('/generate', async (req, res) => {
+app.get('/generate', generateLimiter, async (req, res) => {
     const {id, academy} = req.query;
 
     const error = validateParams(id, academy);

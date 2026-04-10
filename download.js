@@ -17,7 +17,7 @@ const outputDir = path.join(__dirname, 'output');
 dayjs.locale(locale_fr);
 
 export async function scrape(url, academy) {
-    const browser = await chromium.launch({headless: false});
+    const browser = await chromium.launch({headless: true});
     try {
         const page = await browser.newPage();
 

@@ -108,9 +108,14 @@ function App() {
         <div className="min-h-screen flex items-center justify-center bg-white px-4">
             <div className="w-full p-6 sm:max-w-lg sm:border sm:border-gray-200 sm:rounded-2xl sm:p-8 sm:shadow-lg lg:max-w-xl">
                 <h1 className="text-lg font-bold text-gray-800 mb-1">OSS Planner</h1>
-                <p className="text-sm text-gray-500 mb-6">
+                <p className="text-sm text-gray-500 mb-4">
                     Générez un fichier Excel avec le planning de votre académie pour une compétition CFJJB. Le fichier contient les combattants filtrés par club, triés par jour et heure de passage.
                 </p>
+                <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-6">
+                    <p className="text-sm font-semibold text-amber-800">
+                        ⚠ Le fichier ne peut être généré que si les brackets/planning de la compétition sont disponibles sur le site.
+                    </p>
+                </div>
 
                 <form onSubmit={handlePreview} className="space-y-6">
                     <div>
@@ -232,9 +237,6 @@ function App() {
 
                 <p className="text-xs text-gray-400 mt-6 text-center leading-relaxed">
                     Collez l'URL d'une compétition depuis <a href="https://cfjjb.com/" target="_blank" rel="noopener noreferrer" className="underline text-red-500 hover:text-red-600">cfjjb.com</a> pour générer le fichier Excel du planning.
-                </p>
-                <p className="text-xs text-gray-400 mt-2 text-center leading-relaxed">
-                    Le fichier ne peut être généré que si les brackets/planning de la compétition sont disponibles sur le site.
                 </p>
             </div>
         </div>

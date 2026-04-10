@@ -78,6 +78,12 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
         }
 
         const key = `${id}_${academy}`;
+        const existing = previewCache.get(key);
+        if (existing) {
+            logger.info({ id, academy }, 'Serving from preview cache');
+            return res.json({cached: false, data: existing.data});
+        }
+
         let pending = inflightScrapes.get(key);
         if (pending) {
             logger.info({ id, academy }, 'Joining existing scrape in progress');

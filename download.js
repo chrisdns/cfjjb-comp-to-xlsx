@@ -13,7 +13,10 @@ import fs from "fs";
 
 dayjs.locale(locale_fr);
 
-export async function main(url, academy) {
+export async function main(url, academy, id) {
+    const cached = getCachedFile(id, academy);
+    if (cached) return cached;
+
     const browser = await chromium.launch({headless: true});
     try {
         const page = await browser.newPage();
@@ -27,10 +30,17 @@ export async function main(url, academy) {
         await scrollToBottom(page);
         const data = await computeData(page, {planning, academy});
 
-        return generateXlsx(data, academy);
+        return generateXlsx(data, academy, id);
     } finally {
         await browser.close();
     }
+}
+
+function getCachedFile(id, academy) {
+    const outputDir = path.resolve('./output');
+    const filePath = path.join(outputDir, `planning_${academy}_${id}.xlsx`);
+    if (fs.existsSync(filePath)) return filePath;
+    return null;
 }
 
 async function extractPlanning(id) {
@@ -128,7 +138,7 @@ async function computeData(page, params) {
     }, params);
 }
 
-function generateXlsx(data, academy) {
+function generateXlsx(data, academy, id) {
     const headers = ['Nom', 'Club', 'Catégorie', 'Poids', 'Tatamis', 'Jour', 'Heure'];
     const fields = ['fighter', 'team', 'cate', 'weightLimit', 'tatamis', 'startDate', 'startHour'];
 
@@ -151,7 +161,7 @@ function generateXlsx(data, academy) {
       XLSX.utils.book_append_sheet(wb, ws.ws, ws.day);
     });
 
-    const filename = `planning_${academy}_${Date.now()}.xlsx`;
+    const filename = `planning_${academy}_${id}.xlsx`;
     const outputDir = path.resolve('./output');
     const filePath = path.join(outputDir, filename);
 

@@ -24,12 +24,11 @@ app.get('/generate', async (req, res) => {
     }
 
     try {
-        const filePath = await main(`https://cfjjb.com/competitions/signup/info/${id}`, academy);
+        const filePath = await main(`https://cfjjb.com/competitions/signup/info/${id}`, academy, id);
         res.download(filePath, err => {
             if (err) {
                 console.error('Error sending file:', err);
             }
-            fs.unlink(filePath, () => {});
         });
     } catch (e) {
         console.error(e);

@@ -38,6 +38,11 @@ function App() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-white px-4">
             <div className="w-full p-6 sm:max-w-sm sm:border sm:border-gray-200 sm:rounded-2xl sm:p-8 sm:shadow-lg">
+                <h1 className="text-lg font-bold text-gray-800 mb-1">Planning Compétition JJB</h1>
+                <p className="text-sm text-gray-500 mb-6">
+                    Générez un fichier Excel avec le planning de votre académie pour une compétition CFJJB. Le fichier contient les combattants filtrés par club, triés par jour et heure de passage.
+                </p>
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
                         <label htmlFor="url" className="block text-sm text-gray-500 mb-1">
@@ -94,7 +99,7 @@ function App() {
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                             </svg>
                         )}
-                        {loading ? 'Generating...' : 'Generate .xlsx'}
+                        {loading ? 'Génération en cours...' : 'Générer le fichier .xlsx'}
                     </button>
                 </form>
 

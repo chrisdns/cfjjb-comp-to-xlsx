@@ -233,6 +233,9 @@ function App() {
                 <p className="text-xs text-gray-400 mt-6 text-center leading-relaxed">
                     Collez l'URL d'une compétition depuis <a href="https://cfjjb.com/" target="_blank" rel="noopener noreferrer" className="underline text-red-500 hover:text-red-600">cfjjb.com</a> pour générer le fichier Excel du planning.
                 </p>
+                <p className="text-xs text-gray-400 mt-2 text-center leading-relaxed">
+                    Le fichier ne peut être généré que si les brackets/planning de la compétition sont disponibles sur le site.
+                </p>
             </div>
         </div>
     );

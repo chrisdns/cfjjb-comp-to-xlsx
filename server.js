@@ -2,7 +2,7 @@ import express from 'express';
 import compression from 'compression';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
-import {scrape, generateXlsx, getCachedFile, closeBrowser} from "./download.js";
+import {scrape, generateXlsx, getCachedFile, deleteCachedFile, closeBrowser} from "./download.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
 import {logger} from './logger.js';
@@ -60,8 +60,9 @@ function validateParams(id, academy) {
 app.get('/preview', scrapeLimiter, async (req, res) => {
     const {id} = req.query;
     const academy = req.query.academy?.trim().toLowerCase();
+    const force = req.query.force === '1';
 
-    logger.info({ id, academy }, 'Preview request');
+    logger.info({ id, academy, force }, 'Preview request');
 
     const error = validateParams(id, academy);
     if (error) {
@@ -70,12 +71,19 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
     }
 
     try {
-        const cached = getCachedFile(id, academy);
-        if (cached) {
-            return res.json({cached: true, data: []});
+        if (!force) {
+            const cached = getCachedFile(id, academy);
+            if (cached) {
+                return res.json({cached: true, data: []});
+            }
+        } else {
+            deleteCachedFile(id, academy);
         }
 
         const key = `${id}_${academy}`;
+        if (force) {
+            previewCache.delete(key);
+        }
         const existing = previewCache.get(key);
         if (existing) {
             logger.info({ id, academy }, 'Serving from preview cache');

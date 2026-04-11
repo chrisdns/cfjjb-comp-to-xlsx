@@ -7,6 +7,7 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState(null);
     const [competitionId, setCompetitionId] = useState(null);
+    const [cached, setCached] = useState(false);
     const [activeDay, setActiveDay] = useState(null);
     const abortControllerRef = useRef(null);
 
@@ -16,11 +17,12 @@ function App() {
         setLoading(false);
     };
 
-    const handlePreview = async (e) => {
-        e.preventDefault();
+    const handlePreview = async (e, { force = false } = {}) => {
+        e?.preventDefault();
         cancelRequest();
         setLoading(true);
         setPreview(null);
+        setCached(false);
 
         const controller = new AbortController();
         abortControllerRef.current = controller;
@@ -40,7 +42,9 @@ function App() {
             const id = match[1];
             setCompetitionId(id);
 
-            const response = await fetch(`/preview?id=${id}&academy=${encodeURIComponent(academy)}`, {
+            const params = new URLSearchParams({ id, academy });
+            if (force) params.set('force', '1');
+            const response = await fetch(`/preview?${params}`, {
                 signal: controller.signal,
             });
             if (!response.ok) {
@@ -50,7 +54,7 @@ function App() {
 
             const result = await response.json();
             if (result.cached) {
-                await downloadFile(id, controller.signal);
+                setCached(true);
             } else {
                 setPreview(result.data);
             }
@@ -183,6 +187,28 @@ function App() {
                         </svg>
                         Annuler
                     </button>
+                )}
+
+                {cached && (
+                    <div className="mt-6 space-y-3">
+                        <p className="text-sm text-gray-500 text-center">
+                            Un fichier existe deja pour cette competition.
+                        </p>
+                        <button
+                            onClick={handleDownload}
+                            disabled={loading}
+                            className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition cursor-pointer"
+                        >
+                            Telecharger le fichier existant
+                        </button>
+                        <button
+                            onClick={() => handlePreview(null, { force: true })}
+                            disabled={loading}
+                            className="w-full bg-gray-100 hover:bg-gray-200 disabled:opacity-60 text-gray-700 font-bold py-3 rounded-xl transition cursor-pointer"
+                        >
+                            Forcer un nouveau scraping
+                        </button>
+                    </div>
                 )}
 
                 {preview && (

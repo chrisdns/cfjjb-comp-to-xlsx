@@ -92,7 +92,7 @@ export async function scrape(url, academy, signal) {
     }
 }
 
-export {generateXlsx, getCachedFile};
+export {generateXlsx, getCachedFile, deleteCachedFile};
 
 function getCachedFile(id, academy) {
     const filePath = path.join(outputDir, `planning_${academy}_${id}.xlsx`);
@@ -101,6 +101,14 @@ function getCachedFile(id, academy) {
         return filePath;
     }
     return null;
+}
+
+function deleteCachedFile(id, academy) {
+    const filePath = path.join(outputDir, `planning_${academy}_${id}.xlsx`);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        logger.info({ filePath }, 'Deleted cached file (force refresh)');
+    }
 }
 
 async function extractPlanning(id) {

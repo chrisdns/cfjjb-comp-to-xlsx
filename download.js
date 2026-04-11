@@ -52,6 +52,47 @@ function checkAborted(signal) {
 
 export async function scrape(url, academy, signal, { mode = 'participants' } = {}) {
     logger.info({ url, academy, mode }, 'Scrape started');
+
+    if (mode === 'participants') {
+        return scrapeParticipants(url, academy, signal);
+    }
+    return scrapeBrackets(url, academy, signal);
+}
+
+async function scrapeParticipants(url, academy, signal) {
+    // Fetch the info page HTML to find the participants tab link (contains the groupId)
+    checkAborted(signal);
+    const infoRes = await fetch(url, { signal });
+    if (!infoRes.ok) throw new Error(`Page inaccessible: ${infoRes.status}`);
+    const infoHtml = await infoRes.text();
+
+    const hrefMatch = infoHtml.match(/href="([^"]*tab=participants[^"]*)"/);
+    if (!hrefMatch) throw new Error('Onglet participants introuvable — vérifiez l\'URL');
+    const participantsUrl = new URL(hrefMatch[1], url);
+    participantsUrl.searchParams.set('by_team', '');
+
+    const competitionId = participantsUrl.searchParams.get('id');
+    if (!competitionId) throw new Error('ID de compétition introuvable');
+
+    // Fetch planning + participants page in parallel
+    checkAborted(signal);
+    logger.info({ competitionId }, 'Fetching planning + participants');
+    const [planning, participantsRes] = await Promise.all([
+        extractPlanning(competitionId),
+        fetch(participantsUrl.toString(), { signal }),
+    ]);
+    if (!participantsRes.ok) throw new Error(`Page participants inaccessible: ${participantsRes.status}`);
+    const html = await participantsRes.text();
+    logger.info({ categories: planning.length }, 'Planning fetched');
+
+    const data = extractFightersFromHtml(html, { planning, academy });
+    logger.info({ fighters: data.length, academy }, 'Data extracted');
+
+    if (data.length === 0) throw new Error(`Aucun combattant trouvé pour "${academy}"`);
+    return data;
+}
+
+async function scrapeBrackets(url, academy, signal) {
     const browser = await getBrowser();
     const page = await browser.newPage();
     try {
@@ -61,25 +102,12 @@ export async function scrape(url, academy, signal, { mode = 'participants' } = {
         const response = await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 60000});
         if (!response.ok()) throw new Error(`Page inaccessible: ${response.status()}`);
 
-        if (mode === 'participants') {
-            // Navigate to participants grouped by team
-            checkAborted(signal);
-            const participantsTab = await page.$('[href*="tab=participants"]');
-            if (!participantsTab) throw new Error('Onglet participants introuvable — vérifiez l\'URL');
-            const href = await participantsTab.getAttribute('href');
-            const participantsUrl = new URL(href, page.url());
-            participantsUrl.searchParams.set('by_team', '');
-            await page.goto(participantsUrl.toString(), {waitUntil: 'domcontentloaded', timeout: 60000});
-            await page.waitForSelector('table', { timeout: 30000 });
-            logger.info('Participants (by team) loaded');
-        } else {
-            checkAborted(signal);
-            const bracketsTab = await page.$('[href*="tab=brackets"]');
-            if (!bracketsTab) throw new Error('Onglet brackets introuvable — vérifiez l\'URL');
-            await bracketsTab.click();
-            await page.waitForLoadState('domcontentloaded');
-            logger.info('Brackets tab clicked');
-        }
+        checkAborted(signal);
+        const bracketsTab = await page.$('[href*="tab=brackets"]');
+        if (!bracketsTab) throw new Error('Onglet brackets introuvable — vérifiez l\'URL');
+        await bracketsTab.click();
+        await page.waitForLoadState('domcontentloaded');
+        logger.info('Brackets tab clicked');
 
         const params = new URL(page.url()).searchParams;
         const competitionId = params.get('id');
@@ -91,17 +119,13 @@ export async function scrape(url, academy, signal, { mode = 'participants' } = {
         logger.info({ categories: planning.length }, 'Planning fetched');
 
         checkAborted(signal);
-        if (mode === 'brackets') {
-            logger.info('Scrolling page to load all content');
-            await scrollToBottom(page, signal);
-        }
+        logger.info('Scrolling page to load all content');
+        await scrollToBottom(page, signal);
 
-        const extract = mode === 'brackets' ? extractFightersFromBrackets : extractFightersFromParticipants;
-        const data = await extract(page, {planning, academy});
+        const data = await extractFightersFromBrackets(page, {planning, academy});
         logger.info({ fighters: data.length, academy }, 'Data extracted');
 
         if (data.length === 0) throw new Error(`Aucun combattant trouvé pour "${academy}"`);
-
         return data;
     } finally {
         await page.close();
@@ -193,40 +217,41 @@ async function scrollToBottom(page, signal) {
     }
 }
 
-async function extractFightersFromParticipants(page, params) {
-    return page.evaluate(({planning, academy}) => {
-        const planningByName = Object.fromEntries(
-            planning.map(p => [p.category.toLowerCase(), p])
-        );
-        // Each table is preceded by a div with the team name
-        const tables = document.querySelectorAll('table');
-        const results = [];
-        for (const table of tables) {
-            const header = table.previousElementSibling;
-            const teamName = header?.innerText?.split('\n')[0]?.trim();
-            if (!teamName?.toLowerCase().includes(academy.toLowerCase())) continue;
+function extractFightersFromHtml(html, {planning, academy}) {
+    const planningByName = new Map(
+        planning.map(p => [p.category.toLowerCase(), p])
+    );
+    const results = [];
+    // Split by team headers
+    const teamBlocks = html.split(/<h1[^>]*class="[^"]*text-blue-800[^"]*"[^>]*>/i);
+    for (const block of teamBlocks) {
+        const nameEnd = block.indexOf('</h1>');
+        if (nameEnd === -1) continue;
+        const teamName = block.substring(0, nameEnd).replace(/<[^>]*>/g, '').trim();
+        if (!teamName.toLowerCase().includes(academy.toLowerCase())) continue;
 
-            for (const row of table.querySelectorAll('tr')) {
-                const tds = row.querySelectorAll('td');
-                if (tds.length < 2) continue;
-                const cate = tds[0].innerText.trim();
-                const fighter = tds[1].innerText.trim();
-                const cateInfo = planningByName[cate.toLowerCase()];
-                if (!cateInfo) continue;
+        // Extract rows: each <tr> has two <td>s — category and fighter
+        const rowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/tr>/gi;
+        let match;
+        while ((match = rowRegex.exec(block)) !== null) {
+            const cate = match[1].replace(/<[^>]*>/g, '').trim();
+            const fighter = match[2].replace(/<[^>]*>/g, '').trim();
+            if (!cate || !fighter) continue;
+            const cateInfo = planningByName.get(cate.toLowerCase());
+            if (!cateInfo) continue;
 
-                results.push({
-                    fighter,
-                    team: teamName,
-                    cate: cateInfo.category,
-                    weightLimit: '',
-                    tatamis: cateInfo.tatamis.join(','),
-                    startDate: cateInfo.startDate,
-                    startHour: cateInfo.startHour
-                });
-            }
+            results.push({
+                fighter,
+                team: teamName,
+                cate: cateInfo.category,
+                weightLimit: '',
+                tatamis: cateInfo.tatamis.join(','),
+                startDate: cateInfo.startDate,
+                startHour: cateInfo.startHour
+            });
         }
-        return results;
-    }, params);
+    }
+    return results;
 }
 
 async function extractFightersFromBrackets(page, params) {

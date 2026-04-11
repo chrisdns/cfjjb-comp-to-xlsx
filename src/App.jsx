@@ -112,7 +112,7 @@ function App() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-white px-4">
             <div className="w-full p-6 sm:max-w-lg sm:border sm:border-gray-200 sm:rounded-2xl sm:p-8 sm:shadow-lg lg:max-w-xl">
-                <h1 className="text-lg font-bold text-gray-800 mb-1">OSS Planner</h1>
+                <h1 className="text-lg font-bold text-gray-800 mb-1">CFJJB Planner</h1>
                 <p className="text-sm text-gray-500 mb-4">
                     Générez un fichier Excel avec le planning de votre académie pour une compétition CFJJB. Le fichier contient les combattants filtrés par club, triés par jour et heure de passage.
                 </p>

@@ -192,7 +192,7 @@ function App() {
                         </button>
                     </div>
                     <p className="text-xs text-gray-400 -mt-4">
-                        Le mode Participants est plus rapide et plus fiable. Utilisez Brackets uniquement si les participants ne sont pas disponibles.
+                        Le mode Participants est plus rapide et 100% fiable. Utilisez Brackets uniquement si les participants ne sont pas disponibles.
                     </p>
 
                     <button

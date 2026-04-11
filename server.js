@@ -190,7 +190,7 @@ function cleanupOutput() {
     });
 }
 
-const cleanupInterval = setInterval(cleanupOutput, FILE_MAX_AGE_MS);
+const cleanupInterval = setInterval(cleanupOutput, PREVIEW_MAX_AGE_MS);
 cleanupInterval.unref();
 cleanupOutput();
 

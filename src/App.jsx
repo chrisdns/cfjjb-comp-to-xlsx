@@ -8,6 +8,7 @@ function App() {
     const [preview, setPreview] = useState(null);
     const [competitionId, setCompetitionId] = useState(null);
     const [cached, setCached] = useState(false);
+    const [mode, setMode] = useState('participants');
     const [activeDay, setActiveDay] = useState(null);
     const abortControllerRef = useRef(null);
 
@@ -42,7 +43,7 @@ function App() {
             const id = match[1];
             setCompetitionId(id);
 
-            const params = new URLSearchParams({ id, academy });
+            const params = new URLSearchParams({ id, academy, mode });
             if (force) params.set('force', '1');
             const response = await fetch(`/preview?${params}`, {
                 signal: controller.signal,
@@ -165,6 +166,34 @@ function App() {
                             placeholder="planning_competition"
                         />
                     </div>
+
+                    <div className="flex rounded-xl overflow-hidden border border-gray-200">
+                        <button
+                            type="button"
+                            onClick={() => setMode('participants')}
+                            className={`flex-1 py-2 text-sm font-semibold transition cursor-pointer ${
+                                mode === 'participants'
+                                    ? 'bg-red-600 text-white'
+                                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                            }`}
+                        >
+                            Participants
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMode('brackets')}
+                            className={`flex-1 py-2 text-sm font-semibold transition cursor-pointer ${
+                                mode === 'brackets'
+                                    ? 'bg-red-600 text-white'
+                                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                            }`}
+                        >
+                            Brackets
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-400 -mt-4">
+                        Le mode Participants est plus rapide et plus fiable. Utilisez Brackets uniquement si les participants ne sont pas disponibles.
+                    </p>
 
                     <button
                         type="submit"

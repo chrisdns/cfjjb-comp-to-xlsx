@@ -61,8 +61,9 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
     const {id} = req.query;
     const academy = req.query.academy?.trim().toLowerCase();
     const force = req.query.force === '1';
+    const mode = req.query.mode === 'brackets' ? 'brackets' : 'participants';
 
-    logger.info({ id, academy, force }, 'Preview request');
+    logger.info({ id, academy, force, mode }, 'Preview request');
 
     const error = validateParams(id, academy);
     if (error) {
@@ -96,7 +97,7 @@ app.get('/preview', scrapeLimiter, async (req, res) => {
         } else {
             logger.info({ id, academy }, 'Starting new scrape');
             const ac = new AbortController();
-            pending = scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy, ac.signal)
+            pending = scrape(`https://cfjjb.com/competitions/signup/info/${id}`, academy, ac.signal, { mode })
                 .finally(() => {
                     logger.info({ id, academy }, 'Scrape finished, removing from inflight');
                     inflightScrapes.delete(key);

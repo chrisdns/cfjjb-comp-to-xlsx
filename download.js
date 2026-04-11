@@ -50,8 +50,8 @@ function checkAborted(signal) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 }
 
-export async function scrape(url, academy, signal) {
-    logger.info({ url, academy }, 'Scrape started');
+export async function scrape(url, academy, signal, { mode = 'participants' } = {}) {
+    logger.info({ url, academy, mode }, 'Scrape started');
     const browser = await getBrowser();
     const page = await browser.newPage();
     try {
@@ -61,11 +61,25 @@ export async function scrape(url, academy, signal) {
         const response = await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 60000});
         if (!response.ok()) throw new Error(`Page inaccessible: ${response.status()}`);
 
-        checkAborted(signal);
-        const bracketsTab = await page.$('[href*="tab=brackets"]');
-        if (!bracketsTab) throw new Error('Onglet brackets introuvable — vérifiez l\'URL');
-        await bracketsTab.click();
-        logger.info('Brackets tab clicked');
+        if (mode === 'participants') {
+            // Navigate to participants grouped by team
+            checkAborted(signal);
+            const participantsTab = await page.$('[href*="tab=participants"]');
+            if (!participantsTab) throw new Error('Onglet participants introuvable — vérifiez l\'URL');
+            const href = await participantsTab.getAttribute('href');
+            const participantsUrl = new URL(href, page.url());
+            participantsUrl.searchParams.set('by_team', '');
+            await page.goto(participantsUrl.toString(), {waitUntil: 'domcontentloaded', timeout: 60000});
+            await page.waitForSelector('table', { timeout: 30000 });
+            logger.info('Participants (by team) loaded');
+        } else {
+            checkAborted(signal);
+            const bracketsTab = await page.$('[href*="tab=brackets"]');
+            if (!bracketsTab) throw new Error('Onglet brackets introuvable — vérifiez l\'URL');
+            await bracketsTab.click();
+            await page.waitForLoadState('domcontentloaded');
+            logger.info('Brackets tab clicked');
+        }
 
         const params = new URL(page.url()).searchParams;
         const competitionId = params.get('id');
@@ -77,10 +91,13 @@ export async function scrape(url, academy, signal) {
         logger.info({ categories: planning.length }, 'Planning fetched');
 
         checkAborted(signal);
-        logger.info('Scrolling page to load all content');
-        await scrollToBottom(page, signal);
+        if (mode === 'brackets') {
+            logger.info('Scrolling page to load all content');
+            await scrollToBottom(page, signal);
+        }
 
-        const data = await computeData(page, {planning, academy});
+        const extract = mode === 'brackets' ? extractFightersFromBrackets : extractFightersFromParticipants;
+        const data = await extract(page, {planning, academy});
         logger.info({ fighters: data.length, academy }, 'Data extracted');
 
         if (data.length === 0) throw new Error(`Aucun combattant trouvé pour "${academy}"`);
@@ -117,38 +134,38 @@ async function extractPlanning(id) {
     const json = await res.json();
     if (!json.planning2) throw new Error('Planning introuvable pour cette compétition');
     const data = json.planning2;
-    return data
+    const entries = data
         .flatMap(entry => entry.areas.flatMap(area => area.category_fights.map(fight => ({
-            category: fight.category.fullname, starts_at: fight.starts_at, tatami: area.name
-        }))))
-        .reduce((acc, {category, tatami, starts_at}) => {
-            let categoryObj = acc.find(item => item.category === category);
+            categoryId: String(fight.category.id),
+            category: fight.category.fullname,
+            starts_at: fight.starts_at,
+            tatami: area.name
+        }))));
 
-            if (!categoryObj) {
-                categoryObj = {
-                    category: category, tatamis: [], startDate: starts_at
-                };
-                acc.push(categoryObj);
-            }
+    const byId = new Map();
+    for (const {categoryId, category, tatami, starts_at} of entries) {
+        let obj = byId.get(categoryId);
+        if (!obj) {
+            obj = {categoryId, category, tatamis: [], startDate: starts_at};
+            byId.set(categoryId, obj);
+        }
+        const tatamiNum = tatami.split(' ')[1];
+        if (!obj.tatamis.includes(tatamiNum)) {
+            obj.tatamis.push(tatamiNum);
+        }
+        if (new Date(starts_at) < new Date(obj.startDate)) {
+            obj.startDate = starts_at;
+        }
+    }
 
-            if (!categoryObj.tatamis.includes(tatami)) {
-                categoryObj.tatamis.push(tatami.split(' ')[1]);
-            }
-
-            if (new Date(starts_at) < new Date(categoryObj.startDate)) {
-                categoryObj.startDate = starts_at;
-            }
-
-            return acc;
-        }, [])
-        .map(item => {
-            const startDateTime = dayjs.utc(item.startDate).tz('Europe/Paris');
-            return {
-                ...item,
-                startDate: startDateTime.format('dddd'),
-                startHour: startDateTime.format('HH:mm')
-            };
-        });
+    return Array.from(byId.values()).map(item => {
+        const startDateTime = dayjs.utc(item.startDate).tz('Europe/Paris');
+        return {
+            ...item,
+            startDate: startDateTime.format('dddd'),
+            startHour: startDateTime.format('HH:mm')
+        };
+    });
 }
 
 async function scrollToBottom(page, signal) {
@@ -157,7 +174,6 @@ async function scrollToBottom(page, signal) {
 
     while (stableCount < 3) {
         checkAborted(signal);
-        // Scroll gradually to the current bottom to trigger lazy loading
         const targetHeight = await page.evaluate(() => document.documentElement.scrollHeight);
         const currentPos = await page.evaluate(() => window.scrollY);
 
@@ -166,7 +182,6 @@ async function scrollToBottom(page, signal) {
             await page.waitForTimeout(35);
         }
 
-        // Wait for any new content to load
         await page.waitForTimeout(1000);
 
         const newHeight = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -178,42 +193,73 @@ async function scrollToBottom(page, signal) {
     }
 }
 
-async function computeData(page, params) {
-    return page.evaluate((params) => {
-        const {planning, academy} = params;
+async function extractFightersFromParticipants(page, params) {
+    return page.evaluate(({planning, academy}) => {
+        const planningByName = Object.fromEntries(
+            planning.map(p => [p.category.toLowerCase(), p])
+        );
+        // Each table is preceded by a div with the team name
+        const tables = document.querySelectorAll('table');
+        const results = [];
+        for (const table of tables) {
+            const header = table.previousElementSibling;
+            const teamName = header?.innerText?.split('\n')[0]?.trim();
+            if (!teamName?.toLowerCase().includes(academy.toLowerCase())) continue;
+
+            for (const row of table.querySelectorAll('tr')) {
+                const tds = row.querySelectorAll('td');
+                if (tds.length < 2) continue;
+                const cate = tds[0].innerText.trim();
+                const fighter = tds[1].innerText.trim();
+                const cateInfo = planningByName[cate.toLowerCase()];
+                if (!cateInfo) continue;
+
+                results.push({
+                    fighter,
+                    team: teamName,
+                    cate: cateInfo.category,
+                    weightLimit: '',
+                    tatamis: cateInfo.tatamis.join(','),
+                    startDate: cateInfo.startDate,
+                    startHour: cateInfo.startHour
+                });
+            }
+        }
+        return results;
+    }, params);
+}
+
+async function extractFightersFromBrackets(page, params) {
+    return page.evaluate(({planning, academy}) => {
+        const planningByName = Object.fromEntries(
+            planning.map(p => [p.category.toLowerCase(), p])
+        );
         return Array
             .from(document.querySelectorAll('section[id^="page_area_"]'))
-            .reduce((acc, div) => {
-                const cate = div.querySelector('.text-center.uppercase.tracking-wider').innerText;
-                const weightLimit = div.querySelector('.text-base').innerText;
-                const squares = Array
+            .flatMap(div => {
+                const cate = div.querySelector('.text-center.uppercase.tracking-wider')?.innerText;
+                const weightLimit = div.querySelector('.text-base')?.innerText;
+                const cateInfo = planningByName[cate?.toLowerCase()];
+                if (!cateInfo) return [];
+                return Array
                     .from(div.querySelectorAll('div[id^="ins_"]'))
                     .map(t => {
                         const fighter = t.querySelector('.font-bold')?.innerText;
                         const team = t.querySelector('.font-thin')?.innerText;
                         if (fighter && team?.toLowerCase().includes(academy.toLowerCase())) {
-                            const fighterCate = planning.find(({category}) => category.toLowerCase() === cate.toLowerCase());
-                            if (fighterCate) {
-                              return {
-                                  fighter,
-                                  team,
-                                  cate,
-                                  weightLimit,
-                                  tatamis: fighterCate.tatamis.join(','),
-                                  startDate: fighterCate.startDate,
-                                      startHour: fighterCate.startHour
-                                  };
-                              }
+                            return {
+                                fighter,
+                                team,
+                                cate,
+                                weightLimit,
+                                tatamis: cateInfo.tatamis.join(','),
+                                startDate: cateInfo.startDate,
+                                startHour: cateInfo.startHour
+                            };
                         }
                     })
                     .filter(Boolean);
-
-                acc.push(squares)
-
-                return acc;
-            }, [])
-            .filter(arr => arr.length > 0)
-            .flat();
+            });
     }, params);
 }
 

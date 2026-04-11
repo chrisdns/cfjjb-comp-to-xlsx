@@ -69,23 +69,28 @@ async function scrapeParticipants(url, academy, signal) {
     const hrefMatch = infoHtml.match(/href="([^"]*tab=participants[^"]*)"/);
     if (!hrefMatch) throw new Error('Onglet participants introuvable — vérifiez l\'URL');
     const participantsUrl = new URL(hrefMatch[1], url);
-    participantsUrl.searchParams.set('by_team', '');
+    const byTeamUrl = new URL(participantsUrl);
+    byTeamUrl.searchParams.set('by_team', '');
 
     const competitionId = participantsUrl.searchParams.get('id');
     if (!competitionId) throw new Error('ID de compétition introuvable');
 
-    // Fetch planning + participants page in parallel
+    // Fetch planning + both participant pages in parallel
     checkAborted(signal);
     logger.info({ competitionId }, 'Fetching planning + participants');
-    const [planning, participantsRes] = await Promise.all([
+    const [planning, byTeamRes, byCateRes] = await Promise.all([
         extractPlanning(competitionId),
+        fetch(byTeamUrl.toString(), { signal }),
         fetch(participantsUrl.toString(), { signal }),
     ]);
-    if (!participantsRes.ok) throw new Error(`Page participants inaccessible: ${participantsRes.status}`);
-    const html = await participantsRes.text();
+    if (!byTeamRes.ok) throw new Error(`Page participants inaccessible: ${byTeamRes.status}`);
+    if (!byCateRes.ok) throw new Error(`Page participants inaccessible: ${byCateRes.status}`);
+    const byTeamHtml = await byTeamRes.text();
+    const byCateHtml = await byCateRes.text();
     logger.info({ categories: planning.length }, 'Planning fetched');
 
-    const data = extractFightersFromHtml(html, { planning, academy });
+    const weightMap = extractWeightMap(byCateHtml);
+    const data = extractFightersFromHtml(byTeamHtml, { planning, academy, weightMap });
     logger.info({ fighters: data.length, academy }, 'Data extracted');
 
     if (data.length === 0) throw new Error(`Aucun combattant trouvé pour "${academy}"`);
@@ -217,7 +222,28 @@ async function scrollToBottom(page, signal) {
     }
 }
 
-function extractFightersFromHtml(html, {planning, academy}) {
+function extractWeightMap(html) {
+    // From the by-category page, extract data-cate -> weight limit
+    const map = new Map();
+    const regex = /(Jusqu&#039;.+?)\)<\/span>[\s\S]*?<table[^>]*>([\s\S]*?)<\/table>/gi;
+    let m;
+    while ((m = regex.exec(html)) !== null) {
+        const weight = m[1].replace(/&#039;/g, "'").trim();
+        const cateMatch = m[2].match(/data-cate="(\d+)"/);
+        if (cateMatch) map.set(cateMatch[1], weight);
+    }
+    // Also handle "Plus de" weights
+    const plusRegex = /Plus de (.+?)\)<\/span>[\s\S]*?<table[^>]*>([\s\S]*?)<\/table>/gi;
+    while ((m = plusRegex.exec(html)) !== null) {
+        const weight = ("Plus de " + m[1]).replace(/&#039;/g, "'").trim();
+        const cateMatch = m[2].match(/data-cate="(\d+)"/);
+        if (cateMatch) map.set(cateMatch[1], weight);
+    }
+    logger.info({ weights: map.size }, 'Weight map extracted');
+    return map;
+}
+
+function extractFightersFromHtml(html, {planning, academy, weightMap}) {
     const planningByName = new Map(
         planning.map(p => [p.category.toLowerCase(), p])
     );
@@ -244,7 +270,7 @@ function extractFightersFromHtml(html, {planning, academy}) {
                 fighter,
                 team: teamName,
                 cate: cateInfo.category,
-                weightLimit: '',
+                weightLimit: weightMap?.get(cateInfo.categoryId) || '',
                 tatamis: cateInfo.tatamis.join(','),
                 startDate: cateInfo.startDate,
                 startHour: cateInfo.startHour

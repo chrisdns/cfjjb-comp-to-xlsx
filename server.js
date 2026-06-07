@@ -4,7 +4,6 @@ import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import {scrape, generateXlsx, getCachedFile, deleteCachedFile, closeBrowser} from "./download.js";
 import {getUpcomingChampionships} from "./championships.js";
-import {startScheduler} from "./scheduler.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
 import {logger} from './logger.js';
@@ -59,18 +58,6 @@ function validateParams(id, academy) {
     }
     return null;
 }
-
-app.get('/files/:filename', (req, res) => {
-    const {filename} = req.params;
-    if (!/^planning_[a-z0-9_-]+_\d+\.xlsx$/i.test(filename)) {
-        return res.status(400).json({error: 'Invalid filename'});
-    }
-    const filePath = path.join(outputDir, filename);
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).json({error: 'Not found'});
-    }
-    res.sendFile(filePath);
-});
 
 app.get('/championships', async (req, res) => {
     try {
@@ -220,8 +207,6 @@ cleanupOutput();
 
 const PORT = 3000;
 const server = app.listen(PORT, () => logger.info({ port: PORT }, 'Server running'));
-
-startScheduler();
 
 async function shutdown(signal) {
     logger.info({ signal }, 'Shutting down gracefully');

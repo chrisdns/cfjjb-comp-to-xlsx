@@ -24,10 +24,6 @@ services:
   cfjjb:
     build: .
     restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - PUBLIC_BASE_URL=https://ossu.fr
     expose:
       - "3000"
     deploy:

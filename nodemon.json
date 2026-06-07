@@ -1,5 +1,5 @@
 {
-  "watch": ["server.js", "download.js"],
+  "watch": ["server.js", "download.js", "scheduler.js", "championships.js"],
   "ext": "js,json",
   "ignore": ["node_modules/", "dist/", "output/", "*.xlsx"],
   "exec": "node server.js",

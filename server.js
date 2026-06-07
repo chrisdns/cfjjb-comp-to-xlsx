@@ -3,6 +3,8 @@ import compression from 'compression';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import {scrape, generateXlsx, getCachedFile, deleteCachedFile, closeBrowser} from "./download.js";
+import {getUpcomingChampionships} from "./championships.js";
+import {startScheduler} from "./scheduler.js";
 import * as path from "node:path";
 import {fileURLToPath} from 'url';
 import {logger} from './logger.js';
@@ -12,6 +14,7 @@ app.set('trust proxy', 1);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const outputDir = path.join(__dirname, 'output');
 
 const scrapeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -56,6 +59,28 @@ function validateParams(id, academy) {
     }
     return null;
 }
+
+app.get('/files/:filename', (req, res) => {
+    const {filename} = req.params;
+    if (!/^planning_[a-z0-9_-]+_\d+\.xlsx$/i.test(filename)) {
+        return res.status(400).json({error: 'Invalid filename'});
+    }
+    const filePath = path.join(outputDir, filename);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({error: 'Not found'});
+    }
+    res.sendFile(filePath);
+});
+
+app.get('/championships', async (req, res) => {
+    try {
+        const data = await getUpcomingChampionships();
+        res.json(data);
+    } catch (e) {
+        logger.error({err: e}, 'Championships fetch failed');
+        res.status(500).json({error: e.message});
+    }
+});
 
 app.get('/preview', scrapeLimiter, async (req, res) => {
     const {id} = req.query;
@@ -157,7 +182,6 @@ app.get('/generate', generateLimiter, async (req, res) => {
     }
 });
 
-const outputDir = path.join(__dirname, 'output');
 const FILE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
 function cleanupPreviews() {
@@ -196,6 +220,8 @@ cleanupOutput();
 
 const PORT = 3000;
 const server = app.listen(PORT, () => logger.info({ port: PORT }, 'Server running'));
+
+startScheduler();
 
 async function shutdown(signal) {
     logger.info({ signal }, 'Shutting down gracefully');

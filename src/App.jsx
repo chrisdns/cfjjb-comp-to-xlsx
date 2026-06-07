@@ -1,4 +1,4 @@
-import {useState, useRef} from 'react';
+import {useState, useRef, useEffect} from 'react';
 
 function App() {
     const [url, setUrl] = useState('');
@@ -10,7 +10,25 @@ function App() {
     const [cached, setCached] = useState(false);
     const [mode, setMode] = useState('participants');
     const [activeDay, setActiveDay] = useState(null);
+    const [championships, setChampionships] = useState([]);
     const abortControllerRef = useRef(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch('/championships')
+            .then(r => r.ok ? r.json() : [])
+            .then(data => { if (!cancelled && Array.isArray(data)) setChampionships(data); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
+
+    const formatDateRange = (startIso, endIso) => {
+        const start = new Date(startIso);
+        const end = new Date(endIso);
+        const fmt = new Intl.DateTimeFormat('fr-FR', {day: 'numeric', month: 'long'});
+        if (start.toDateString() === end.toDateString()) return fmt.format(start);
+        return `${fmt.format(start)} – ${fmt.format(end)}`;
+    };
 
     const cancelRequest = () => {
         abortControllerRef.current?.abort();
@@ -121,6 +139,31 @@ function App() {
                         ⚠ Le fichier ne peut être généré que si les brackets/planning de la compétition sont disponibles sur le site.
                     </p>
                 </div>
+
+                {championships.length > 0 && (
+                    <div className="mb-6">
+                        <p className="text-sm text-gray-500 mb-2">
+                            Compétitions à venir (sous 7 jours)
+                        </p>
+                        <ul className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+                            {championships.map(c => (
+                                <li key={c.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUrl(`https://cfjjb.com/competitions/signup/info/${c.id}`)}
+                                        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition cursor-pointer"
+                                    >
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <span className="font-semibold text-gray-800 text-sm truncate">{c.name}</span>
+                                            <span className="text-xs text-gray-500 shrink-0">{formatDateRange(c.startDate, c.endDate)}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-400 mt-0.5">{c.location}</div>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 <form onSubmit={handlePreview} className="space-y-6">
                     <div>

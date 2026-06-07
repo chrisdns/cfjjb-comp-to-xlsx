@@ -1,4 +1,6 @@
 .idea/
+sent.json
+output/
 
 # Logs
 logs

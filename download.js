@@ -16,6 +16,12 @@ const outputDir = path.join(__dirname, 'output');
 
 dayjs.locale(locale_fr);
 
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const fetchOpts = (extra = {}) => ({
+    ...extra,
+    headers: {'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/json', ...(extra.headers || {})},
+});
+
 let browserInstance = null;
 let browserLaunching = null;
 
@@ -62,7 +68,7 @@ export async function scrape(url, academy, signal, { mode = 'participants' } = {
 async function scrapeParticipants(url, academy, signal) {
     // Fetch the info page HTML to find the participants tab link (contains the groupId)
     checkAborted(signal);
-    const infoRes = await fetch(url, { signal });
+    const infoRes = await fetch(url, fetchOpts({ signal }));
     if (!infoRes.ok) throw new Error(`Page inaccessible: ${infoRes.status}`);
     const infoHtml = await infoRes.text();
 
@@ -80,8 +86,8 @@ async function scrapeParticipants(url, academy, signal) {
     logger.info({ competitionId }, 'Fetching planning + participants');
     const [planning, byTeamRes, byCateRes] = await Promise.all([
         extractPlanning(competitionId),
-        fetch(byTeamUrl.toString(), { signal }),
-        fetch(participantsUrl.toString(), { signal }),
+        fetch(byTeamUrl.toString(), fetchOpts({ signal })),
+        fetch(participantsUrl.toString(), fetchOpts({ signal })),
     ]);
     if (!byTeamRes.ok) throw new Error(`Page participants inaccessible: ${byTeamRes.status}`);
     if (!byCateRes.ok) throw new Error(`Page participants inaccessible: ${byCateRes.status}`);
@@ -158,7 +164,7 @@ function deleteCachedFile(id, academy) {
 }
 
 async function extractPlanning(id) {
-    const res = await fetch(`https://cfjjb.com/public/competition/${id}/planningv2`);
+    const res = await fetch(`https://cfjjb.com/public/competition/${id}/planningv2`, fetchOpts());
     if (!res.ok) throw new Error(`Erreur API planning: ${res.status}`);
     const json = await res.json();
     if (!json.planning2) throw new Error('Planning introuvable pour cette compétition');

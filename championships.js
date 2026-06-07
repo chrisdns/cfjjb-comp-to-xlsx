@@ -3,6 +3,7 @@ import {logger} from './logger.js';
 const CALENDAR_URL = 'https://cfjjb.com/competitions/calendrier-competitions';
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const WINDOW_DAYS = 7;
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const MONTHS_FR = {
     janvier: 0, février: 1, fevrier: 1, mars: 2, avril: 3, mai: 4, juin: 5,
@@ -16,7 +17,7 @@ export async function getUpcomingChampionships() {
     if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
         return cache.data;
     }
-    const res = await fetch(CALENDAR_URL);
+    const res = await fetch(CALENDAR_URL, {headers: {'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml'}});
     if (!res.ok) throw new Error(`Calendrier inaccessible: ${res.status}`);
     const html = await res.text();
 

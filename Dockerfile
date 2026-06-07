@@ -28,6 +28,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/download.js ./
 COPY --from=builder /app/server.js ./
 COPY --from=builder /app/logger.js ./
+COPY --from=builder /app/championships.js ./
+COPY --from=builder /app/scheduler.js ./
+COPY --from=builder /app/subscriptions.json ./
 
 RUN mkdir -p /app/output && chown node:node /app/output
 USER node
